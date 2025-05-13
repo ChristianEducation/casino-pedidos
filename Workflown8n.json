@@ -1,0 +1,4657 @@
+{
+  "name": "My workflow 14",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  telegram_id,\n  nombre_apoderado,\n  correo_electronico,\n  hijos_info,\n  ultima_interaccion,\n  tipo_usuario,\n  conversation_state,\n  last_action,\n  session_context,\n  last_pedido_state,\n  fecha_ultimo_pedido,\n  numero_telefeno,\n  CASE\n    WHEN conversation_state = 'activa' THEN 'activa'\n    ELSE 'cerrada'\n  END AS conversationStatus,\n  'EXISTE' AS user_status\nFROM clientes_recurrentes\nWHERE telegram_id = '{{ $json.from_id }}'\n\nUNION ALL\n\nSELECT\n  NULL               AS telegram_id,\n  NULL               AS nombre_apoderado,\n  NULL               AS correo_electronico,\n  NULL               AS hijos_info,\n  NULL               AS ultima_interaccion,\n  NULL               AS tipo_usuario,\n  'nueva'            AS conversation_state,\n  NULL               AS last_action,\n  NULL               AS session_context,\n  NULL               AS last_pedido_state,\n  NULL               AS fecha_ultimo_pedido,\n  'cerrada'          AS conversationStatus,\n  'NUEVO'            AS user_status,\n  NULL               AS Numero_telefeno\nWHERE NOT EXISTS (\n  SELECT 1\n  FROM clientes_recurrentes\n  WHERE telegram_id = '{{ $json.from_id }}'\n);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2240,
+        -160
+      ],
+      "id": "40961371-9a72-49b1-b27b-7c302db0827e",
+      "name": "Postgres4",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "pkNPuD63q9YnzG4j",
+          "name": "Postgres account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Función mejorada para procesar el contexto del usuario\nfunction procesarContextoUsuario(userData) {\n  if (!userData || !userData.telegram_id) {\n    return {\n      esNuevo: true,\n      estadoActual: \"nuevo\",\n      mensajeSistema: \"Usuario nuevo detectado, iniciando bienvenida\",\n      accionesPermitidas: [\"bienvenida\", \"registro\"]\n    };\n  }\n\n  const ultimaAccion = userData.last_action || \"desconocida\";\n  const estadoConversacion = userData.conversation_state || \"activa\";\n  let contextoSesion;\n\n  // Intentar parsear session_context si existe\n  try {\n    contextoSesion = typeof userData.session_context === 'string'\n      ? JSON.parse(userData.session_context)\n      : (userData.session_context || {});\n  } catch (e) {\n    contextoSesion = {};\n  }\n\n  // Variables para controlar el mensaje del sistema\n  let estadoActual;\n  let mensajeSistema;\n  let accionesPermitidas;\n  let recomendacionAgente = \"\";\n\n  // Determinar el estado actual basado en conversation_state y last_action\n  if (estadoConversacion === \"pendiente_pago\") {\n    estadoActual = \"pendiente_pago\";\n    mensajeSistema = \"El usuario tiene un pedido pendiente de pago. Ofrece completar el pago o modificar el pedido.\";\n    accionesPermitidas = [\"pago\", \"modificar_pedido\"];\n    recomendacionAgente = \"Al identificar usuario con pago pendiente, ofrecer opción de completar pago o hacer cambios\";\n  } else if (ultimaAccion === \"creó_pedido\" || ultimaAccion === \"pagó_pedido\") {\n    estadoActual = \"pedido_completado\";\n    mensajeSistema = \"El usuario tiene un pedido completado. Está disponible para realizar nuevas acciones.\";\n    accionesPermitidas = [\"nuevo_pedido\", \"consultar\"];\n    recomendacionAgente = \"Saludar como cliente recurrente y ofrecer nuevo pedido o consulta\";\n  } else if (estadoConversacion === \"en_proceso\") {\n    estadoActual = \"creando_pedido\";\n    mensajeSistema = \"Usuario en proceso de crear un pedido. Continuar recopilando información faltante.\";\n    accionesPermitidas = [\"continuar_pedido\"];\n    recomendacionAgente = \"Continuar desde el punto donde quedó la recopilación de datos\";\n  } else if (ultimaAccion === \"iniciando_pago\") {\n    estadoActual = \"proceso_pago\";\n    mensajeSistema = \"Usuario iniciando proceso de pago. Redirigir al flujo de pagos.\";\n    accionesPermitidas = [\"procesar_pago\"];\n    recomendacionAgente = \"Dirigir inmediatamente al agente de pagos\";\n  } else {\n    estadoActual = \"conversacion_general\";\n    mensajeSistema = \"Conversación general, ofrecer ayuda y opciones disponibles.\";\n    accionesPermitidas = [\"iniciar_pedido\", \"consultar\"];\n    recomendacionAgente = \"Ofrecer menú de opciones principales\";\n  }\n\n  return {\n    esNuevo: false,\n    ultimaAccion,\n    estadoConversacion,\n    contextoSesion,\n    estadoActual,\n    mensajeSistema,\n    accionesPermitidas,\n    recomendacionAgente,\n    datosCompletos: userData\n  };\n}\n\n// Procesar los datos del usuario desde el nodo Postgres\nconst datosUsuario = $input.item.json;\nconst contextoUsuario = procesarContextoUsuario(datosUsuario);\n\n// Combinar los datos originales con el contexto procesado\nreturn {\n  json: {\n    ...datosUsuario,\n    contexto_procesado: contextoUsuario\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        -160
+      ],
+      "id": "250415d7-c20a-42af-b1ce-84b126dddea1",
+      "name": "GestorContextoUsuario1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT estado_conversacion\nFROM usuarios_nuevos\nWHERE id_usuario = '{{ $('Edit Fields').item.json.from_id }}';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2560,
+        -160
+      ],
+      "id": "f24acb0f-1506-451c-a4ad-461d3295aaa3",
+      "name": "Postgres5",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "pkNPuD63q9YnzG4j",
+          "name": "Postgres account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": "={{ [\"messages\"] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        1620,
+        -160
+      ],
+      "id": "64606768-77f8-4042-8759-e57006ae55a8",
+      "name": "WhatsApp Trigger",
+      "webhookId": "9af1365c-87b2-48aa-9637-3756357c50fe",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "3l2CssHhobnr2z5B",
+          "name": "WhatsApp OAuth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4896f0e7-3f46-4189-8768-ab44b9babeaf",
+              "name": "phone_id",
+              "value": "={{ $json.contacts[0].wa_id }}{{ $json.phone_id }}",
+              "type": "string"
+            },
+            {
+              "id": "65b113ac-95ed-4863-82ba-c46cab4d97b1",
+              "name": "from_id",
+              "value": "={{ $json.metadata.phone_number_id }}{{ $json.sessionId }}",
+              "type": "string"
+            },
+            {
+              "id": "c59da4b6-8822-4398-804f-fa1e11007567",
+              "name": "text",
+              "value": "={{ $json.messages[0].text.body }}{{ $json.message }}",
+              "type": "string"
+            },
+            {
+              "id": "dfab6970-9cb6-4805-95f0-4480153cd4ee",
+              "name": "timestamp",
+              "value": "={{ $json.messages[0].timestamp }}",
+              "type": "string"
+            },
+            {
+              "id": "851e6cd1-4903-487b-8288-aae708f4940a",
+              "name": "imagen",
+              "value": "={{ $json.messages[0].image.id }}",
+              "type": "string"
+            },
+            {
+              "id": "b3ce7bbd-81e4-412d-82cc-8fe3a1de4db5",
+              "name": "Audio_id",
+              "value": "={{ $json.messages[0].audio.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2040,
+        -160
+      ],
+      "id": "4dcd2bec-35a3-4d13-a811-b1f95122c584",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "76aeabb6-0b6a-4b6a-910d-95720580ff57",
+                    "leftValue": "={{ $('Edit Fields').item.json.text }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "texto"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "1895a8f7-09ae-409a-86b2-a46c014523b3",
+                    "leftValue": "={{ $('Edit Fields').item.json.Audio_id }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Audio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f73670c0-a382-46a0-9904-041f44452ec4",
+                    "leftValue": "={{ $('Edit Fields').item.json.imagen }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Imagen"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        3340,
+        -160
+      ],
+      "id": "7248fd24-34f6-4c67-9f92-aa1b63ee895c",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Usamos Date con ajuste para hora de Chile (UTC-4)\nconst nowUTC = new Date();\n// Ajustar a hora de Chile (UTC-4)\nconst chileanOffset = -4 * 60; // -4 horas en minutos\nconst now = new Date(nowUTC.getTime() + (chileanOffset + nowUTC.getTimezoneOffset()) * 60000);\n\n// Obtenemos día y hora actuales\nconst hora = now.getHours();\nconst diaSemana = now.getDay(); // 0 = domingo, 6 = sábado\nconst HORA_CORTE_ALMUERZO = 9; // 9:00 AM\n\n// Función para añadir días a una fecha\nfunction addDays(date, days) {\n  const result = new Date(date);\n  result.setDate(result.getDate() + days);\n  return result;\n}\n\n// Función para formatear fecha como DD/MM/YYYY\nfunction formatDate(date) {\n  const day = String(date.getDate()).padStart(2, '0');\n  const month = String(date.getMonth() + 1).padStart(2, '0');\n  const year = date.getFullYear();\n  return `${day}/${month}/${year}`;\n}\n\n// Calculamos la fecha de entrega y el motivo\nlet fechaEntregaDisponible;\nlet motivoFecha = \"\";\n\n// Lógica para determinar fecha de entrega\nif (diaSemana === 0) { // Domingo\n  if (hora < HORA_CORTE_ALMUERZO) {\n    fechaEntregaDisponible = addDays(now, 1); // Lunes\n    motivoFecha = \"Su pedido está dentro del horario de corte dominical, la entrega será para mañana lunes.\";\n  } else {\n    fechaEntregaDisponible = addDays(now, 2); // Martes\n    motivoFecha = `Por ser domingo después de las ${HORA_CORTE_ALMUERZO}:00 horas, la entrega será para el martes.`;\n  }\n} else if (diaSemana === 6) { // Sábado\n  fechaEntregaDisponible = addDays(now, 2); // Lunes\n  motivoFecha = \"Por ser sábado, la entrega será para el lunes.\";\n} else if (hora >= HORA_CORTE_ALMUERZO) {\n  // Día de semana después de las 9 AM\n  fechaEntregaDisponible = addDays(now, 2);\n  \n  // Ajustamos si cae en fin de semana\n  const nuevoDiaSemana = fechaEntregaDisponible.getDay();\n  if (nuevoDiaSemana === 6) { // Sábado\n    fechaEntregaDisponible = addDays(fechaEntregaDisponible, 2);\n  } else if (nuevoDiaSemana === 0) { // Domingo\n    fechaEntregaDisponible = addDays(fechaEntregaDisponible, 1);\n  }\n  \n  motivoFecha = `Por ser después de las ${HORA_CORTE_ALMUERZO}:00 horas, la entrega será en dos días hábiles.`;\n} else {\n  // Día de semana antes de las 9 AM\n  fechaEntregaDisponible = addDays(now, 1);\n  motivoFecha = \"Su pedido está dentro del horario de corte, la entrega será para mañana.\";\n}\n\n// Crear el objeto de resultado simplificado\nconst resultado = {\n  timestamp_actual: {\n    fecha_completa: now.toISOString(),\n    fecha: formatDate(now),\n    hora: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`,\n    dia_semana: diaSemana,\n    nombre_dia: [\"domingo\", \"lunes\", \"martes\", \"miércoles\", \"jueves\", \"viernes\", \"sábado\"][diaSemana],\n    mes: now.getMonth() + 1,\n    nombre_mes: [\"enero\", \"febrero\", \"marzo\", \"abril\", \"mayo\", \"junio\", \"julio\", \"agosto\", \"septiembre\", \"octubre\", \"noviembre\", \"diciembre\"][now.getMonth()],\n    es_finde: diaSemana === 0 || diaSemana === 6,\n    hora_numerica: hora\n  },\n  disponibilidad_entrega: {\n    fecha_entrega: formatDate(fechaEntregaDisponible),\n    hora_entrega: \"12:00:00\",\n    fecha_hora_entrega: fechaEntregaDisponible.toISOString(),\n    texto_fecha: `${[\"domingo\", \"lunes\", \"martes\", \"miércoles\", \"jueves\", \"viernes\", \"sábado\"][fechaEntregaDisponible.getDay()]} ${fechaEntregaDisponible.getDate()} de ${[\"enero\", \"febrero\", \"marzo\", \"abril\", \"mayo\", \"junio\", \"julio\", \"agosto\", \"septiembre\", \"octubre\", \"noviembre\", \"diciembre\"][fechaEntregaDisponible.getMonth()]}`,\n    motivo: motivoFecha,\n    dias_espera: Math.round((fechaEntregaDisponible - now) / (1000 * 60 * 60 * 24))\n  },\n  validacion_pago: {\n    formato_fecha_esperado: \"DD/MM/YYYY\",\n    formato_hora_esperado: \"HH:mm:ss\",\n    fecha_minima_valida: formatDate(addDays(now, -1)),\n    fecha_maxima_valida: formatDate(addDays(now, 1))\n  },\n  pedidoParaHoy: hora < HORA_CORTE_ALMUERZO && diaSemana > 0 && diaSemana < 6,\n  fechaEntrega: formatDate(fechaEntregaDisponible),\n  esFinDeSemana: diaSemana === 0 || diaSemana === 6,\n  horaActual: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,\n  fechaActual: formatDate(now),\n  mensaje: motivoFecha\n};\n\n// Retornar el resultado\nreturn [{ json: resultado }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3180,
+        -160
+      ],
+      "id": "4b4963f1-3a4d-4492-8f91-35f4b58a657f",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Postgres4').item.json.conversationstatus }}",
+                    "rightValue": "EXISTE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ec06cc04-f5fd-42fe-8559-a36ed93f5838"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "UsuarioExistente"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2538a76d-5b8a-4df3-9f9b-6130adda92a7",
+                    "leftValue": "={{ $('Postgres4').item.json.conversationstatus }}",
+                    "rightValue": "NUEVO",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "UsuarioNuevo"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2720,
+        -160
+      ],
+      "id": "541ad65a-ff18-4f10-95ba-d457cd23a630",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "05242d00-d702-4611-9d2e-d48728d4864e",
+              "name": "=clienteExiste",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "9414faa4-42c8-4441-89db-37046dc139a7",
+              "name": "nombreApoderado",
+              "value": "={{ $json.nombre_apoderado }}",
+              "type": "string"
+            },
+            {
+              "id": "bfafe406-a891-43b4-8bde-e741b859e9a8",
+              "name": "HijosInfo",
+              "value": "={{ $json.hijos_info }}",
+              "type": "string"
+            },
+            {
+              "id": "de47c848-a17c-4660-9078-c2b05a978f1e",
+              "name": "CorreoApoderado",
+              "value": "={{ $json.correo_electronico }}",
+              "type": "string"
+            },
+            {
+              "id": "3a90cfe8-81b0-4ac5-8732-8eb7b24dfc3b",
+              "name": "fechaUltimoPedido",
+              "value": "=",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "include": "selected",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2940,
+        -260
+      ],
+      "id": "543fc592-47fe-4731-87fa-e3adf22b1dd5",
+      "name": "Set Usuario Existente"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ca749348-9120-464b-8084-08acc80b89e1",
+              "name": "clienteExistente",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "fb82521a-aa06-4e57-a38f-e945c32a3a6c",
+              "name": "nombreCliente",
+              "value": "=\"\"",
+              "type": "string"
+            },
+            {
+              "id": "5ceb64e9-99b5-49a0-a4b8-9bf454ef5cdf",
+              "name": "ultimoPedido",
+              "value": "=\"\"",
+              "type": "string"
+            },
+            {
+              "id": "2229bb2f-f361-4a76-addf-c8beef117a6b",
+              "name": "totalPedidos",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "be0e8319-2028-4dba-a924-f5ca3d93572e",
+              "name": "mensajeUsuarioTexto",
+              "value": "={{ $('Edit Fields').item.json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "fa201572-943e-42c6-8b04-97b09f2fabfc",
+              "name": "mensajeUsuarioAudio",
+              "value": "={{ $('Edit Fields').item.json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "c1d16fc1-62d7-4277-98c6-101b3bf29445",
+              "name": "mensajeUsuarioFoto",
+              "value": "={{ $('Edit Fields').item.json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2940,
+        -80
+      ],
+      "id": "d1e8b3b8-2eb1-4ea8-800f-52efae25ac31",
+      "name": "Set Usuario Nuevo"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3fdc2699-c2ce-4cc6-a492-3a8afc5cf7da",
+              "name": "mensajeusuario",
+              "value": "={{ $('Edit Fields').item.json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "ed6eb6e2-5ed3-4002-8985-c5a8ccd3f26a",
+              "name": "pedidosparahoy",
+              "value": "={{ $json.pedidoParaHoy }}",
+              "type": "boolean"
+            },
+            {
+              "id": "a4c3d3b0-1692-445c-b9a8-7316f4fc7005",
+              "name": "fechaentrega",
+              "value": "={{ $json.disponibilidad_entrega.fecha_entrega }}",
+              "type": "string"
+            },
+            {
+              "id": "5fd51535-f9dc-4b00-8964-3654a007ff1f",
+              "name": "mensajetiempo",
+              "value": "={{ $json.mensaje }}",
+              "type": "string"
+            },
+            {
+              "id": "ee98d868-dd1b-404e-8a29-bd401758958d",
+              "name": "horaActual",
+              "value": "={{ $json.horaActual }}",
+              "type": "string"
+            },
+            {
+              "id": "d7bd3ae3-f5b2-4801-8a75-c9dbf5c35ca8",
+              "name": "sessionid",
+              "value": "={{ $('Edit Fields').item.json.from_id }}",
+              "type": "string"
+            },
+            {
+              "id": "40f33834-127b-4f45-8031-2c9552449770",
+              "name": "fechaActual",
+              "value": "={{ $json.fechaActual }}",
+              "type": "string"
+            },
+            {
+              "id": "1788dec4-e5bc-4e74-8bdf-1aaaa801b840",
+              "name": "nombre cliente",
+              "value": "={{ $('Switch1').item.json.nombreCliente }}",
+              "type": "string"
+            },
+            {
+              "id": "28713790-8ca8-4b22-b505-d9a240117782",
+              "name": "curso",
+              "value": "={{ $('Switch1').item.json.cursoCliente }}",
+              "type": "string"
+            },
+            {
+              "id": "be1978af-0b6e-4494-bc7d-54d1eab6f662",
+              "name": "emailCliente",
+              "value": "={{ $('Switch1').item.json.emailCliente }}",
+              "type": "string"
+            },
+            {
+              "id": "becbcb3c-4f58-4520-aceb-438f91e2a113",
+              "name": "ultimo pedido",
+              "value": "={{ $('Switch1').item.json.ultimoPedido }}",
+              "type": "string"
+            },
+            {
+              "id": "81871e85-2aa1-41f7-8f59-aa5fab5bfe8c",
+              "name": "total pedido",
+              "value": "={{ $('Switch1').item.json.totalPedidos }}",
+              "type": "string"
+            },
+            {
+              "id": "5918dbe4-228f-4ba1-a6e0-21d4c9c872c8",
+              "name": "fechaultimopedido",
+              "value": "={{ $('Switch1').item.json.fechaUltimoPedido }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3620,
+        -360
+      ],
+      "id": "6c1ba46a-4378-4c20-8ac8-d58cdb002976",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Postgres5').item.json.estado_conversacion }}{{ $('Postgres4').item.json.last_action }}",
+                    "rightValue": "entregó_datos_pago",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    },
+                    "id": "d4236d2a-5ce2-44a7-bf7d-ba6b786f4c63"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Agendar"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cf6171bf-70c9-4af1-9226-0e300e420bcf",
+                    "leftValue": "={{ $('Postgres5').item.json.estado_conversacion }}{{ $('Postgres4').item.json.last_action }}",
+                    "rightValue": "entregó_datos_pago",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Pagar"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        4560,
+        -360
+      ],
+      "id": "e8fb3aaf-97de-4558-8f29-9720a9c91e9a",
+      "name": "Switch3"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        5140,
+        -940
+      ],
+      "id": "09996b72-00a5-4407-9c52-d9122d88545c",
+      "name": "OpenAI Chat Model1",
+      "notesInFlow": false,
+      "credentials": {
+        "openAiApi": {
+          "id": "Qc5ynpGWNim7SZVx",
+          "name": "OpenAi account 3"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        5860,
+        -920
+      ],
+      "id": "01ae4e23-7093-4a82-9eb9-9bf8ae3281b2",
+      "name": "Calculator1"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "=customKey",
+        "sessionKey": "eyJhGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvZXNpcGV5YnNhc3JrbnZnbnRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5Mzg2MzEsImV4cCI6MjA1ODUxNDYzMX0.zLUMG6PRVJK1pEaAdO4pssFKGp8XMx9VAvwii4Xw1iU"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        5280,
+        -940
+      ],
+      "id": "faa04833-faba-4726-86b3-344f2eb09416",
+      "name": "Postgres Chat Memory1",
+      "credentials": {
+        "postgres": {
+          "id": "pkNPuD63q9YnzG4j",
+          "name": "Postgres account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=CONTEXTO:\n{{ $json.contexto_texto }}\n\nEl usuario ha dicho:\n{{ $json.mensaje_usuario }}\n\nCalendario Fechas proxima Semana\n{{ $json.calendario_fechas }}\n\nResponde al usuario de manera apropiada basándote en este contexto.",
+        "options": {
+          "systemMessage": "=Eres un asistente virtual especializado en gestionar pedidos de almuerzos y colaciones para un colegio. Tu objetivo es guiar al usuario a través de un proceso de pedido estructurado y eficiente.\n\n## CONTEXTO PARA TI\n1. La fecha actual es: {{ $('Edit Fields1').item.json.fechaActual }}\n2. La hora actual es: {{ $('Edit Fields1').item.json.horaActual }}\n3. Día de la semana: {{ $('Switch1').item.json.timestamp_actual.nombre_dia }}\n4. Guarda siempre esta información: \n\n## CONTEXTO DEL USUARIO\nEstado actual: {{ $('GestorContextoUsuario1').item.json.contexto_procesado.estadoActual }}\n{{ $('GestorContextoUsuario1').item.json.contexto_procesado.mensajeSistema }}\n\n## CRITERIOS DE ENTREGA\n- La hora de corte es a las 9 am\n- Si es antes de las 9 AM el pedido será para el día siguiente\n- Si es después de las 9 AM el pedido será para el día subsiguiente\nEjemplo: Si el cliente pide un almuerzo el día lunes a las 09:20 am, su primer día de pedido sería desde el miércoles.\n\n## 🧠 GUÍA DE CONVERSACIÓN\n\n### 🟢 1. SALUDO GENERAL (para todos los usuarios)\n\nHola , ¡bienvenido al sistema de pedidos del Casino del Colegio AIS! Según la hora actual ({{ $('Edit Fields1').item.json.fechaActual }}), los pedidos realizados ahora estarán disponibles desde el (Dia que corresponda)\nA continuación, la lógica se divide según el tipo de usuario y el estado de su pedido.\n\n---\n\n### 🔁 2. FLUJOS SEGÚN TIPO DE USUARIO Y ESTADO\n\n#### 👤 A. USUARIO NUEVO (nunca ha hecho un pedido)\n\n1. Saludo inicial:\n\nHola , ¡bienvenido al sistema de pedidos del Casino del Colegio AIS! Según la hora actual ({{ $('Edit Fields1').item.json.fechaActual }}), los pedidos realizados ahora estarán disponibles desde el (Dia que corresponda). Avisame cuando estes listo para envairte el link del formulario de pedidos\n\n2. Luego de su respuesta, enviar:\n\n¡Genial! Para elaborar tu pedido de forma rápida y sin errores, completa este formulario: \nhttps://pedidosdeliciasfoodservices.vercel.app/formulario?sessionId={{$('Switch3').item.json.sessionid }}.\nCuando lo envíes, procesaré tu pedido y te avisaré aquí.\n\nOpcionalmente, puedes compartir los catálogos antes del enlace(solo si los solicita.):\n\nPuedes revisar los catálogos aquí:\n\n* Colaciones: [Ver](https://drive.google.com/file/d/162OXLW4WpH4RkkvoOiBL-p1EUutslTVa/view?usp=sharing)\n* Menú: [Ver](https://drive.google.com/file/d/1B4SJPsw93hubaO9f9XNAFYF5ZMQPaCL-/view?usp=sharing)\n\n---\n\n#### 🔄 B. USUARIO RECURRENTE CON PEDIDO PAGADO\n\n1. Mensaje:\n\nHola, ¡qué gusto tenerte de vuelta! ¿Te gustaría hacer un nuevo pedido?\n\n2. Si responde que sí:\n\nPerfecto, aquí tienes el formulario para hacer tu pedido: \nhttps://pedidosdeliciasfoodservices.vercel.app/formulario?sessionId={{$('Postgres4').item.json.telegram_id }}\nCuando lo envíes, lo procesaré y te avisaré aquí.\n\n---\n\n#### ⛔ C. USUARIO CON PEDIDO PENDIENTE DE PAGO\n\n1. Mensaje:\n\nHola, veo que tienes un **pedido pendiente de pago** por  del día . Para hacer un nuevo pedido, primero debes completar ese pago.\n\n2. Acción:\n\nAvísame cuando estés listo y te enviaré los datos de transferencia.\n\n---\n\n#### ⚙️ D. USUARIO CON PEDIDO PAGADO QUE QUIERE REAGENDAR\n\nEste flujo **no se inicia automáticamente**, sino que se activa solo si el usuario menciona explícitamente una solicitud de modificación de días por una situación especial.\n\n1. Mensaje de respuesta (si el usuario lo solicita):\n\nGracias por tu mensaje. Si necesitas apoyo con una situación especial respecto a tu pedido anterior, estaré encantado de ayudarte.\n\n*Recuerda que solo en casos de emergencia o ausencia justificada del estudiante, se puede modificar un día del pedido, y únicamente hasta las **20:00 horas del día anterior**.*\n\n2. Opciones:\n\n* Si solicita ayuda para un caso especial → iniciar flujo de reagendamiento.\n* Si quiere pedir de nuevo → ir al flujo de recurrente con pago.\n\n---\n\n### 🧾 3. FLUJO RESUMIDO PARA EL BOT\n\n1. Saludar → indicar hora actual y fecha de entrega disponible.\n2. Detectar tipo de usuario:\n\n   * Nuevo → Preguntar por pedido → Enviar formulario nuevo (sessionId).\n   * Recurrente con pago → Preguntar tipo de pedido → Enviar formulario (telegram\\_id).\n   * Con pedido pendiente → Informar situación → Esperar confirmación para enviar datos de pago.\n   * Recurrente que quiere modificar → Iniciar flujo de reagendamiento.\n\n\n### FLUJO DE REAGENDAMIENTO\n1. Solicitar información específica:\n\nPor favor indique los siguientes datos:\nNombre del estudiante:\nDía original a cambiar:\nSemana original:\nNuevo día deseado:\nNueva semana:\n\n2. Buscar y confirmar el pedido encontrado con BuscarPedido\n3. Confirmar cambios propuestos\n4. Actualizar utilizando ReprogramarPedido\n5. Confirmar éxito: \"Su pedido ha sido actualizado correctamente\"\n6. Preguntar: \"¿Hay algo más en que pueda ayudarle?\"\n\n## CONFIRMACIÓN Y PAGO\nCuando confirmen, mostrar datos de transferencia:\nDATOS DE TRANSFERENCIA:\nTitular: Christian Wevar Herrera\nRUT: 18.311.400-K\nCuenta Vista\nNumero de Cuenta: 18311400\nBanco: Banco Estado\n\nMonto: $[total calculado]\n\n## REGLAS DE PRECIOS\n- Almuerzos para estudiantes (opciones 1, 2 y 3): $2930\n- Almuerzos para funcionarios (opciones 1, 2 y 3): $4875 (ya incluye 25% de descuento)\n\n## TÉCNICAS DE CONTROL DE CONVERSACIÓN\n- Si falta información, solicita ESPECÍFICAMENTE lo que falta\n- Si recibe información desordenada, reorganízala según el formato\n- Si el usuario se desvía, guíalo amablemente: \"Para continuar con su pedido, necesito [información específica]\"\n- Si proporciona toda la información de una vez, procésala sin repetir preguntas\n\n## REGLAS FUNDAMENTALES\n1. CONTROLA LA CONVERSACIÓN en todo momento - guía al usuario paso a paso\n2. USA SIEMPRE la base de datos Qdrant para precios actualizados - NUNCA inventes precios\n3. USA SIEMPRE Calculator1 para todas las operaciones matemáticas\n4. RECONOCE información ya proporcionada sin preguntar lo mismo dos veces\n5. Si el usuario quiere pedir almuerzo y colaciones, procesa los pedidos separadamente\n6. Cada cuadro del menú representa una semana del mes, comenzando por semana 1\n\n## FORMATO Y ESTILO\n- Usa viñetas y separadores para mejorar la legibilidad\n- Destaca información importante en negrita\n- Mantén un tono amable pero DIRECTO y CONCISO\n- NUNCA pidas la misma información dos veces\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        5080,
+        -1120
+      ],
+      "id": "6ebf30cd-d75c-4199-8f05-cf04bdf65554",
+      "name": "GestionPedidos"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "12SEOBSSI1D5pxtKs49jx8c6snPFcyb9agAQ6UdS2qxs",
+          "mode": "list",
+          "cachedResultName": "Datos Pedidos",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12SEOBSSI1D5pxtKs49jx8c6snPFcyb9agAQ6UdS2qxs/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Casino",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12SEOBSSI1D5pxtKs49jx8c6snPFcyb9agAQ6UdS2qxs/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Nombre de Estudiante",
+              "lookupValue": "={{ $fromAI('nombre_estudiante', 'Nombre del estudiante mencionado') }}"
+            },
+            {
+              "lookupColumn": "Dia de entrega",
+              "lookupValue": "={{ $fromAI('dia_original', 'Día original del pedido a reprogramar') }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.5,
+      "position": [
+        5400,
+        -940
+      ],
+      "id": "58f9f9f9-db00-4b6e-8bd0-3c34195dc7cd",
+      "name": "BuscarPedido",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "0ZttdQPoQPrvQorH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "12SEOBSSI1D5pxtKs49jx8c6snPFcyb9agAQ6UdS2qxs",
+          "mode": "list",
+          "cachedResultName": "Datos Pedidos",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12SEOBSSI1D5pxtKs49jx8c6snPFcyb9agAQ6UdS2qxs/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Casino",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12SEOBSSI1D5pxtKs49jx8c6snPFcyb9agAQ6UdS2qxs/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Dia de entrega": "={{ $fromAI('nuevo_dia_entrega', 'Nuevo día para la entrega del pedido') }}",
+            "Semana del Mes": "={{ $fromAI('nueva_semana_entrega', 'Nueva semana de entrega del pedido') }}",
+            "row_number": "={{ $fromAI('row_number', 'Fila que se desea actualizar') }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "Tipo de Usuario",
+              "displayName": "Tipo de Usuario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Nombre de Estudiante",
+              "displayName": "Nombre de Estudiante",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Curso y letra",
+              "displayName": "Curso y letra",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Casino de entrega",
+              "displayName": "Casino de entrega",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "NIvel",
+              "displayName": "NIvel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Fecha de creacion del pedido",
+              "displayName": "Fecha de creacion del pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Tipo de Pedido",
+              "displayName": "Tipo de Pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Semana del Mes",
+              "displayName": "Semana del Mes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Codigo",
+              "displayName": "Codigo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Dia de entrega",
+              "displayName": "Dia de entrega",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Precio Unitario",
+              "displayName": "Precio Unitario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Observacion",
+              "displayName": "Observacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Nombre Apoderado",
+              "displayName": "Nombre Apoderado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Telefeno de Apoderado",
+              "displayName": "Telefeno de Apoderado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Correo Eelctronico",
+              "displayName": "Correo Eelctronico",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Estado de pago",
+              "displayName": "Estado de pago",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.5,
+      "position": [
+        5540,
+        -940
+      ],
+      "id": "cdf31694-4c53-493f-82dd-c5f802911257",
+      "name": "ReprogramarPedido",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "0ZttdQPoQPrvQorH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Consulta información detallada sobre colaciones usando sus códigos (A1, C3, etc.). Úsame para obtener descripciones y precios que complementen el resumen del pedido, sin necesidad de mostrar esta información al usuario.",
+        "operation": "getAll",
+        "tableId": "colaciones_catalogo",
+        "matchType": "allFilters"
+      },
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        5760,
+        -940
+      ],
+      "id": "0e6eafdf-d1d1-4c76-a311-b1fdafe46ae9",
+      "name": "Colaciones",
+      "credentials": {
+        "supabaseApi": {
+          "id": "3q9iub5xpiJIj8MV",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Consulta información detallada sobre menús de almuerzos usando sus códigos (A1, C3, etc.). Úsame para obtener descripciones y precios que complementen el resumen del pedido, sin necesidad de mostrar esta información al usuario.",
+        "operation": "getAll",
+        "tableId": "almuerzos_menu",
+        "matchType": "allFilters"
+      },
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        5660,
+        -940
+      ],
+      "id": "17fcadc7-569b-48e5-a552-af0c48974aad",
+      "name": "Almuerzos",
+      "credentials": {
+        "supabaseApi": {
+          "id": "3q9iub5xpiJIj8MV",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clientes_recurrentes",
+          "mode": "list",
+          "cachedResultName": "clientes_recurrentes"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "telegram_id": "={{ $('Postgres4').item.json.telegram_id }}",
+            "last_action": "={{ $json.last_action }}",
+            "conversation_state": "={{ $json.conversation_state }}",
+            "session_context": "={{ $json.session_context }}",
+            "ultima_interaccion": "={{ $('Switch1').item.json.timestamp_actual.fecha_completa }}",
+            "fecha_ultimo_pedido": "={{ $('Postgres4').item.json.fecha_ultimo_pedido }}"
+          },
+          "matchingColumns": [
+            "telegram_id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nombre_apoderado",
+              "displayName": "nombre_apoderado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "correo_electronico",
+              "displayName": "correo_electronico",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "hijos_info",
+              "displayName": "hijos_info",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ultima_interaccion",
+              "displayName": "ultima_interaccion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "tipo_usuario",
+              "displayName": "tipo_usuario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "conversation_state",
+              "displayName": "conversation_state",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "last_action",
+              "displayName": "last_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "session_context",
+              "displayName": "session_context",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "last_pedido_state",
+              "displayName": "last_pedido_state",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "fecha_ultimo_pedido",
+              "displayName": "fecha_ultimo_pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "numero_telefeno",
+              "displayName": "numero_telefeno",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        6780,
+        -1340
+      ],
+      "id": "7ea088f4-7bd2-4924-ab7a-ae970d381413",
+      "name": "ClientesRecurrentes3",
+      "credentials": {
+        "postgres": {
+          "id": "pkNPuD63q9YnzG4j",
+          "name": "Postgres account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Analiza el siguiente mensaje enviado por el agente al usuario y clasifica el estado actual de la conversación.\n\n⚠️ No analices lo que dice el usuario, solo el mensaje que el agente está enviando. Clasifica el estado de la conversación basándote en el contenido del mensaje.\n\nUtiliza solo UNA de las siguientes categorías:\n\n- iniciando_conversacion → El agente está dando la bienvenida o primer saludo. O recibiendo mensaje de usuario existente, con la conversacion cerrada\n- verificando_tipo_usuario → El agente pregunta si el usuario es nuevo o recurrente, o está intentando determinar eso.\n- recopilando_datos → El agente está solicitando información como nombre, curso, días de pedido, etc.\n- confirmando_pedido → El agente está repasando la información del pedido para confirmar si está correcta.\n- proximo_a_pagar → El agente entrega los datos de transferencia para que el usuario realice el pago o el agente entrega el link del Formulario\n- Pago_pedidopendiente → El agente saluda a un cliente recurrente y le pregunta si pagara su pedido pendiente\n\n✅ **Es posible que un mismo estado se repita en distintos momentos de la conversación, y eso es normal. Tu tarea es clasificar cada mensaje según lo que expresa en ese momento.**\n\n📌 IMPORTANTE:\n- Si el mensaje contiene los datos de transferencia o hace referencia a que el usuario debe pagar, clasifícalo siempre como **proximo_a_pagar**.\n\nResponde únicamente con el nombre exacto de la categoría, sin explicaciones adicionales.\n\nMensaje a clasificar:\n---\n{{ $input.item.json.output }}\n",
+              "role": "assistant"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        5520,
+        -1320
+      ],
+      "id": "15c75135-f13f-4ce0-9aa8-6554342c2973",
+      "name": "OpenAI5",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qc5ynpGWNim7SZVx",
+          "name": "OpenAi account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraer clasificación desde OpenAI\nconst clasificacion = $input.first().json.message.content || \"iniciando_conversacion\";\n\n// Mapeo de estados incluyendo nuevo estado \"pago_pedidopendiente\"\nconst estadosMap = {\n  \"iniciando_conversacion\": {\n    conversation_state: \"activa\",\n    last_action: \"inició_conversación\"\n  },\n  \"verificando_tipo_usuario\": {\n    conversation_state: \"verificando_usuario\",\n    last_action: \"verificando_tipo\"\n  },\n  \"recopilando_datos\": {\n    conversation_state: \"en_proceso\",\n    last_action: \"pidiendo_datos\"\n  },\n  \"confirmando_pedido\": {\n    conversation_state: \"en_proceso\",\n    last_action: \"confirmando_pedido\"\n  },\n  \"proximo_a_pagar\": {\n    conversation_state: \"proximo_a_pagar\",\n    last_action: \"entregó_datos_pago\"\n  },\n  \"pago_pedidopendiente\": {\n    conversation_state: \"pago_pendiente\",\n    last_action: \"consultando_pago_pendiente\"\n  }\n};\n\n// Obtener estado correspondiente o uno genérico por si hay error\nconst estadoActual = estadosMap[clasificacion] || {\n  conversation_state: \"activa\",\n  last_action: clasificacion\n};\n\n// Obtener Telegram ID desde nodo anterior\nconst telegramId = $('Edit Fields').first().json.from_id || null;\nif (!telegramId) {\n  throw new Error(\"No se encontró el Telegram ID.\");\n}\n\n// Leer contexto anterior\nlet historialEstadosPrevio = [];\ntry {\n  const sessionContextPrevio = $('GestorContextoUsuario1').first().json.session_context;\n  if (sessionContextPrevio) {\n    const sessionParsed = JSON.parse(sessionContextPrevio);\n    historialEstadosPrevio = sessionParsed.historial_estados || [];\n  }\n} catch (e) {\n  historialEstadosPrevio = [];\n}\n\n// Agregar nuevo estado al historial\nhistorialEstadosPrevio.push(clasificacion);\n\n// Construir contexto de sesión\nconst sessionContext = {\n  estado_actual: clasificacion,\n  ultima_actualizacion: new Date().toISOString(),\n  historial_estados: historialEstadosPrevio\n};\n\n// Devolver objeto para la base de datos\nreturn [{\n  json: {\n    telegramId,\n    conversation_state: estadoActual.conversation_state,\n    last_action: estadoActual.last_action,\n    session_context: JSON.stringify(sessionContext),\n    require_update: true,\n    timestamp: new Date().toISOString(),\n    categoria_original: clasificacion\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5860,
+        -1320
+      ],
+      "id": "8a6a373e-a86d-4f4e-8c6e-0a4e0577d159",
+      "name": "Code8"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Postgres4').item.json.conversationstatus }}",
+                    "rightValue": "EXISTE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ec06cc04-f5fd-42fe-8559-a36ed93f5838"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "UsuarioExistente"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2538a76d-5b8a-4df3-9f9b-6130adda92a7",
+                    "leftValue": "={{ $('Postgres4').item.json.conversationstatus }}",
+                    "rightValue": "NUEVO",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "UsuarioNuevo"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        6260,
+        -1300
+      ],
+      "id": "a3a138f4-79c8-40b1-9138-b58386abba8d",
+      "name": "Switch10"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "usuarios_nuevos",
+          "mode": "list",
+          "cachedResultName": "usuarios_nuevos"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id_usuario": "={{ $json.telegramId }}",
+            "estado_conversacion": "={{ $json.last_action }}"
+          },
+          "matchingColumns": [
+            "id_usuario"
+          ],
+          "schema": [
+            {
+              "id": "id_usuario",
+              "displayName": "id_usuario",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "estado_conversacion",
+              "displayName": "estado_conversacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        6780,
+        -1160
+      ],
+      "id": "5fa68861-3269-4575-b9cf-b2550b2e3502",
+      "name": "Postgres1",
+      "credentials": {
+        "postgres": {
+          "id": "pkNPuD63q9YnzG4j",
+          "name": "Postgres account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=619252331274270",
+        "recipientPhoneNumber": "={{ $('Edit Fields').item.json.phone_id }}",
+        "textBody": "={{ $json.texto }}{{ $json.output }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        6780,
+        -980
+      ],
+      "id": "8f63e263-1b4d-4ad7-a4dc-18ee15529900",
+      "name": "WhatsApp Business Cloud2",
+      "webhookId": "3bc8bbf3-f54e-44e0-b307-b692d65c9159",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "hAZCQMbjo97U8tgF",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        4900,
+        -20
+      ],
+      "id": "4d00a0f8-fb43-4b2c-a126-2e98174fbb07",
+      "name": "OpenAI Chat Model2",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qc5ynpGWNim7SZVx",
+          "name": "OpenAi account 3"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        5160,
+        40
+      ],
+      "id": "553b3ba7-36f2-49b1-af1d-eb5ca5e7efa2",
+      "name": "Calculator2"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "=customKey",
+        "sessionKey": "eyJhGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvZXNpcGV5YnNhc3JrbnZnbnRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5Mzg2MzEsImV4cCI6MjA1ODUxNDYzMX0.zLUMG6PRVJK1pEaAdO4pssFKGp8XMx9VAvwii4Xw1iU"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        4900,
+        120
+      ],
+      "id": "b0dbcfee-c505-4306-a693-ce2a7d7749d5",
+      "name": "Postgres Chat Memory2",
+      "credentials": {
+        "postgres": {
+          "id": "pkNPuD63q9YnzG4j",
+          "name": "Postgres account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Edit Fields').item.json.text }}{{ $json.content }}",
+        "options": {
+          "systemMessage": "=\nEres el Payment Agent, especializado en verificar comprobantes de pago y registrar pedidos en el sistema del kiosko escolar.\n\n## REGLA FUNDAMENTAL\nTU ÚNICA RESPUESTA DEBE SER UN OBJETO JSON. NUNCA respondas con texto normal.\n\n## CONTEXTO DEL USUARIO\nEstado actual: {{ $('GestorContextoUsuario1').item.json.contexto_procesado.estadoActual }}\n\n\n## FLUJO DE TRABAJO\n\n### Paso 1: Identificar el escenario\nDetermina si estás ante uno de estos escenarios:\n- **Escenario A**: Usuario envió un comprobante de pago\n- **Escenario B**: Usuario indica que pagará después\n\n### Paso 2: Procesar según el escenario\n\n#### ESCENARIO A - COMPROBANTE ENVIADO:\n1. Verifica que el comprobante sea válido:\n   - El monto coincide aproximadamente con el total del pedido\n   - El destinatario incluye \"wevar\" o \"christian\" (insensible a mayúsculas)\n   - La fecha de transferencia está dentro del rango permitido (últimas 24 horas)\n2. Si el comprobante es válido:\n   - Genera JSON con `Estado_de_pago: \"Pagado\"`\n   - Incluye herramientas de correo para enviar confirmaciones\n3. Si el comprobante NO es válido:\n   - Genera JSON con error explicando la razón específica\n\n#### ESCENARIO B - PAGO PENDIENTE:\n1. Cuando el usuario indica que pagará después:\n   - Genera el mismo JSON completo pero con `Estado_de_pago: \"Pendiente\"`\n   - Incluye en las herramientas de correo un aviso de pago pendiente\n\n\n4. Verifica precios consultando las herramientas Almuerzos1 o Colaciones1\n\n5. Crea una entrada separada para cada día de pedido\n\n### Paso 4: Acciones adicionales\n\n\n2. Envía correos según el estado del pago:\n\n Si el pago está completo (Estado_de_pago: \"Pagado\"):\n\n  - Al cliente: confirmando su pedido e indicando que el pago ha sido recibido\n  - Al kiosko: notificando el nuevo pedido con su pago completado\n\n Si el pago está pendiente (Estado_de_pago: \"Pendiente\"):\n\n  - Al cliente: confirmando que su pedido ha sido registrado, pero recordándole que el pago \n    está pendiente\n  - Al kiosko: notificando el nuevo pedido e indicando claramente que el pago está pendiente\n   \n## ESTRUCTURA DEL JSON A GENERAR\nIMPORTANTE: Debes generar EXACTAMENTE una entrada en el array \"pedidos\" por cada día que el usuario solicitó, ni más ni menos:\n\n1. Si el usuario pidió solo para el lunes → generar UNA entrada para lunes\n2. Si pidió para lunes, miércoles y viernes → generar TRES entradas (una para cada día)\n3. NUNCA generes entradas para días que el usuario no solicitó\n4. NUNCA generes múltiples entradas para el mismo día\n5. NUNCA generes todas las opciones de menú (A1, A2, A3) - solo incluye el código específico que el usuario eligió\n\nCada entrada debe tener:\n- Todos los datos del estudiante y apoderado\n- El día específico en \"dia_entrega\"\n- El código específico elegido en \"codigo\"\n- ID de usuario: \"{{ $('Edit Fields').item.json.from_id }}\"\n- Incluir \"descripcion_del_producto\" basado en la consulta a las herramientas Almuerzos1 o Colaciones1\n\nEl error más común es generar demasiadas entradas o entradas para días/opciones que el usuario no solicitó. Asegúrate de generar ÚNICAMENTE las entradas para los días y opciones que el usuario EXPLÍCITAMENTE solicitó.\n\nLa fecha de creacion de los pedidos siempre es la fecha actual: {{ $('Code').item.json.timestamp_actual.fecha }}\n\n```json\n{\n  \"pedidos\": [\n    {\n      \"id_usuario\": \"{{ $('Edit Fields').item.json.from_id }}\"\n      \"Tipo_de_usuario\": \"El tipo de usuario indicado por el Usuario\",\n      \"nombre\": \"Nombre del estudiante\",\n      \"curso_y_letra\": \"Curso Segun lo indicado\",\n      \"Casino_de_entrega\": \"Casino 1 o Casino 2 según nivel\",\n      \"Nivel\": \"Playgroup, Lower, Middle, High, segun lo indicado\",\n      \"Fecha_de_creacion_del_pedido\": \"Fecha actual en formato (dd/mm/aaaa)\",\n      \"tipo_pedido\": \"Almuerzo o Colación\",\n      \"Semana_Mes\": \"Semana del mes\",\n      \"codigo\": \"Código del producto (ej: A1, C3)\",\n      \"descripcion_del_producto\": \"descrpcion de la opcion elegida\"\n      \"dia_entrega\": \"Lunes/Martes/Miercoles/Jueves/Viernes)\",\n      \"precio_unitario\": \"Precio individual del producto\",\n      \"Observacion\": \"Notas adicionales\",\n      \"Nombre_Apoderado\": \"Nombre del apoderado\",\n      \"Telefono_de_Apoderado\": \"{{ $('Edit Fields').item.json.phone_id }}\",\n      \"correo\": \"correo@ejemplo.com\",\n      \"Estado_de_pago\": \"Pagado/Pendiente/Pago_Foodtrack/Por_planilla\",\n      \"Hijos_Info\": \"json de la informacion de los hijos(nombre, curso y nivel)\",\n      \"Estado_convesacion\": \"PedidoNuevo/PagoPedidoPendiente\"\n    }\n  ]\n}\n```\nEn el \"Estado_convesacion\", solo usa esos dos posibles mensajes(PedidoNuevo/PagoPedidoPendiente)\nRecuerda que es un json por cada dia de pedido\n## REGLAS CRÍTICAS\n- SIEMPRE devuelve ÚNICAMENTE el objeto JSON como tu respuesta final\n- GENERA UNA ENTRADA SEPARADA para cada día del pedido\n- NORMALIZA los cursos al formato estándar\n- CONSULTA las herramientas disponibles si necesitas información\n- PROCESA todos los pedidos (con pago o pendientes)\n- UTILIZA las herramientas para enviar correos y guardar datos de clientes recurrentes\n- RECUERDA que el JSON es tu único output y las demás acciones son herramientas que utilizas\n\n\n\n\n\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        4880,
+        -200
+      ],
+      "id": "aaf059eb-6a86-4457-9df4-eac8bd08c889",
+      "name": "Pagos"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Consulta información detallada sobre colaciones usando sus códigos (A1, C3, etc.). Úsame para obtener descripciones y precios que complementen el resumen del pedido, sin necesidad de mostrar esta información al usuario.",
+        "operation": "getAll",
+        "tableId": "colaciones_catalogo",
+        "matchType": "allFilters"
+      },
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        5060,
+        140
+      ],
+      "id": "0dd7598b-1bb1-4a7e-bca8-eb18655935c1",
+      "name": "Colaciones1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "3q9iub5xpiJIj8MV",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Consulta información detallada sobre menús de almuerzos usando sus códigos (A1, C3, etc.). Úsame para obtener descripciones y precios que complementen el resumen del pedido, sin necesidad de mostrar esta información al usuario.",
+        "operation": "getAll",
+        "tableId": "almuerzos_menu",
+        "matchType": "allFilters"
+      },
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        5060,
+        -20
+      ],
+      "id": "0975106a-f053-4170-bb56-e50ea58ce8f3",
+      "name": "Almuerzos1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "3q9iub5xpiJIj8MV",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Añade manejo de errores al Code1\ntry {\n  // Obtén la cadena de texto del output\n  const inputText = items[0].json.output;\n  console.log(\"Recibido del agente:\", inputText ? inputText.substring(0, 100) + \"...\" : \"No output\");\n  \n  // Limpia el JSON\n  const cleanedText = inputText.replace(/^```json\\s*/, '').replace(/\\s*```$/, '');\n  \n  // Parsear el texto a JSON\n  const parsed = JSON.parse(cleanedText);\n  \n  // Verificar estructura esperada\n  if (!parsed.pedidos || !Array.isArray(parsed.pedidos)) {\n    console.error(\"Estructura inesperada: No se encontró array 'pedidos'\");\n    return [{json: {error: \"Formato inesperado en la respuesta del agente\"}}];\n  }\n  \n  // Mapea cada pedido a un item individual\n  return parsed.pedidos.map(pedido => ({ \n    json: {\n      ...pedido,\n      // Aseguramos que Estado_de_pago siempre esté presente y normalizado\n      Estado_de_pago: pedido.Estado_de_pago || \"Pendiente\"\n    }\n  }));\n} catch (error) {\n  console.error(\"Error procesando respuesta:\", error);\n  return [{json: {error: \"Error al procesar la respuesta del agente: \" + error.message}}];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5400,
+        0
+      ],
+      "id": "cf746a3e-82fc-4e72-b254-c28067696e34",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "pedidos",
+          "mode": "list",
+          "cachedResultName": "pedidos"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "nombre_estudiante": "={{ $json.nombre }}",
+            "tipo_pedido": "={{ $json.tipo_pedido }}",
+            "codigo": "={{ $json.codigo }}",
+            "precio_unitario": "={{ $json.precio_unitario }}",
+            "curso_y_letra": "={{ $json.curso_y_letra }}",
+            "correo_electronico": "={{ $json.correo }}",
+            "dia_entrega": "={{ $json.dia_entrega }}",
+            "tipo_usuario": "={{ $json.Tipo_de_usuario }}",
+            "nivel": "={{ $json.Nivel }}",
+            "semana_del_mes": "={{ $json.Semana_Mes }}",
+            "estado_pago": "={{ $json.Estado_de_pago }}",
+            "descripcion_producto": "={{ $json.descripcion_del_producto }}",
+            "fecha_creacion": "={{ $json.Fecha_de_creacion_del_pedido }}",
+            "observaciones": "="
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "tipo_usuario",
+              "displayName": "tipo_usuario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nombre_estudiante",
+              "displayName": "nombre_estudiante",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "curso_y_letra",
+              "displayName": "curso_y_letra",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nivel",
+              "displayName": "nivel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "tipo_pedido",
+              "displayName": "tipo_pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "semana_del_mes",
+              "displayName": "semana_del_mes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "codigo",
+              "displayName": "codigo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "descripcion_producto",
+              "displayName": "descripcion_producto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "precio_unitario",
+              "displayName": "precio_unitario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "dia_entrega",
+              "displayName": "dia_entrega",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "correo_electronico",
+              "displayName": "correo_electronico",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "id_pedido_agrupado",
+              "displayName": "id_pedido_agrupado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "fecha_creacion",
+              "displayName": "fecha_creacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "observaciones",
+              "displayName": "observaciones",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "link_comprobante",
+              "displayName": "link_comprobante",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "estado_pago",
+              "displayName": "estado_pago",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        6780,
+        60
+      ],
+      "id": "3b3302bd-0e3d-4569-b58d-a894d57e5a35",
+      "name": "TablaPedidos",
+      "credentials": {
+        "postgres": {
+          "id": "pkNPuD63q9YnzG4j",
+          "name": "Postgres account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "12SEOBSSI1D5pxtKs49jx8c6snPFcyb9agAQ6UdS2qxs",
+          "mode": "list",
+          "cachedResultName": "Datos Pedidos",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12SEOBSSI1D5pxtKs49jx8c6snPFcyb9agAQ6UdS2qxs/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Casino",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12SEOBSSI1D5pxtKs49jx8c6snPFcyb9agAQ6UdS2qxs/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Nombre de Estudiante": "={{ $json.nombre }}",
+            "Tipo de Pedido": "={{ $json.tipo_pedido }}",
+            "Dia de entrega": "={{ $json.dia_entrega }}",
+            "Correo Eelctronico": "={{ $json.correo }}",
+            "Tipo de Usuario": "={{ $json.Tipo_de_usuario }}",
+            "Curso y letra": "={{ $json.curso_y_letra }}",
+            "Codigo": "={{ $json.codigo }}",
+            "Semana del Mes": "={{ $json.Semana_Mes }}",
+            "NIvel": "={{ $json.Nivel }}",
+            "Fecha de creacion del pedido": "={{ $json.Fecha_de_creacion_del_pedido }}",
+            "Precio Unitario": "={{ $json.precio_unitario }}",
+            "Nombre Apoderado": "={{ $json.Nombre_Apoderado }}",
+            "Estado de pago": "={{ $json.Estado_de_pago }}",
+            "Casino de entrega": "={{ $json.Casino_de_entrega }}",
+            "Telefeno de Apoderado": "={{ $json.Telefono_de_Apoderado }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Tipo de Usuario",
+              "displayName": "Tipo de Usuario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Nombre de Estudiante",
+              "displayName": "Nombre de Estudiante",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Curso y letra",
+              "displayName": "Curso y letra",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Casino de entrega",
+              "displayName": "Casino de entrega",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "NIvel",
+              "displayName": "NIvel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Fecha de creacion del pedido",
+              "displayName": "Fecha de creacion del pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Tipo de Pedido",
+              "displayName": "Tipo de Pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Semana del Mes",
+              "displayName": "Semana del Mes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Codigo",
+              "displayName": "Codigo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Dia de entrega",
+              "displayName": "Dia de entrega",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Precio Unitario",
+              "displayName": "Precio Unitario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Observacion",
+              "displayName": "Observacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Nombre Apoderado",
+              "displayName": "Nombre Apoderado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Telefeno de Apoderado",
+              "displayName": "Telefeno de Apoderado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Correo Eelctronico",
+              "displayName": "Correo Eelctronico",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Estado de pago",
+              "displayName": "Estado de pago",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        6780,
+        360
+      ],
+      "id": "377256ee-bce8-43ec-b402-c2c7a69fe7cd",
+      "name": "ExcelPedidos",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "0ZttdQPoQPrvQorH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clientes_recurrentes",
+          "mode": "list",
+          "cachedResultName": "clientes_recurrentes"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "correo_electronico": "={{ $json.correo_electronico }}",
+            "nombre_apoderado": "={{ $json.nombre_apoderado }}",
+            "telegram_id": "={{ $json.telegram_id }}",
+            "hijos_info": "={{ $json.hijos_info }}",
+            "ultima_interaccion": "={{ $json.ultima_interaccion }}",
+            "tipo_usuario": "={{ $json.tipo_usuario }}",
+            "conversation_state": "Cerrada",
+            "last_action": "PedidoAgendado",
+            "last_pedido_state": "={{ $json.Estado_de_pago }}",
+            "session_context": "Finalizada",
+            "fecha_ultimo_pedido": "={{ $json.fecha_ultimo_pedido }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nombre_apoderado",
+              "displayName": "nombre_apoderado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "correo_electronico",
+              "displayName": "correo_electronico",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "hijos_info",
+              "displayName": "hijos_info",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ultima_interaccion",
+              "displayName": "ultima_interaccion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_usuario",
+              "displayName": "tipo_usuario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "conversation_state",
+              "displayName": "conversation_state",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "last_action",
+              "displayName": "last_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "session_context",
+              "displayName": "session_context",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "last_pedido_state",
+              "displayName": "last_pedido_state",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "fecha_ultimo_pedido",
+              "displayName": "fecha_ultimo_pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "numero_telefeno",
+              "displayName": "numero_telefeno",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        6780,
+        -440
+      ],
+      "id": "270ca400-29b6-42a4-8db3-72c114465e93",
+      "name": "ClientesRecurrentes",
+      "credentials": {
+        "postgres": {
+          "id": "pkNPuD63q9YnzG4j",
+          "name": "Postgres account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Postgres4').item.json.last_pedido_state }}",
+                    "rightValue": "Pagado",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "19a244b5-7750-4b06-bc26-fd647e333b9b"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Crear"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ba154702-8ee0-48be-8d76-cc505087e0d3",
+                    "leftValue": "={{ $('Postgres4').item.json.last_pedido_state }}",
+                    "rightValue": "Pendiente",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Actualizar"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        5720,
+        0
+      ],
+      "id": "0036123b-618f-4201-83c4-8d6a693706a6",
+      "name": "Switch5"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "12SEOBSSI1D5pxtKs49jx8c6snPFcyb9agAQ6UdS2qxs",
+          "mode": "list",
+          "cachedResultName": "Datos Pedidos",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12SEOBSSI1D5pxtKs49jx8c6snPFcyb9agAQ6UdS2qxs/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Casino",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12SEOBSSI1D5pxtKs49jx8c6snPFcyb9agAQ6UdS2qxs/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Fecha de creacion del pedido": "={{ $json.Fecha_de_creacion_del_pedido }}",
+            "Estado de pago": "={{ $json.Estado_de_pago }}"
+          },
+          "matchingColumns": [
+            "Fecha de creacion del pedido"
+          ],
+          "schema": [
+            {
+              "id": "Tipo de Usuario",
+              "displayName": "Tipo de Usuario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Nombre de Estudiante",
+              "displayName": "Nombre de Estudiante",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Curso y letra",
+              "displayName": "Curso y letra",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Casino de entrega",
+              "displayName": "Casino de entrega",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "NIvel",
+              "displayName": "NIvel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Fecha de creacion del pedido",
+              "displayName": "Fecha de creacion del pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Tipo de Pedido",
+              "displayName": "Tipo de Pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Semana del Mes",
+              "displayName": "Semana del Mes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Codigo",
+              "displayName": "Codigo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Dia de entrega",
+              "displayName": "Dia de entrega",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Precio Unitario",
+              "displayName": "Precio Unitario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Observacion",
+              "displayName": "Observacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Nombre Apoderado",
+              "displayName": "Nombre Apoderado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Telefeno de Apoderado",
+              "displayName": "Telefeno de Apoderado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Correo Eelctronico",
+              "displayName": "Correo Eelctronico",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Estado de pago",
+              "displayName": "Estado de pago",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Check",
+              "displayName": "Check",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        6780,
+        520
+      ],
+      "id": "393a4223-e88c-4822-93eb-9369dde2f401",
+      "name": "Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "0ZttdQPoQPrvQorH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tomar el JSON original\nconst inputText   = $('Pagos').first().json.output;\nconst cleanedText = inputText\n  .replace(/^```json\\s*/, '')\n  .replace(/\\s*```$/, '');\nconst parsed      = JSON.parse(cleanedText);\n\n// Extraer solo datos del cliente, tomando referencia del primer pedido\nconst primerPedido = parsed.pedidos[0];\n\n// Extraer lista de hijos únicos (eliminando duplicados por nombre)\nconst hijosUnicos = [];\nconst nombresVistos = new Set();\nparsed.pedidos.forEach(pedido => {\n  if (!nombresVistos.has(pedido.nombre)) {\n    nombresVistos.add(pedido.nombre);\n    hijosUnicos.push({\n      nombre: pedido.nombre,\n      curso: pedido.curso_y_letra,\n      nivel:  pedido.Nivel || \"\"\n    });\n  }\n});\n\n// Fecha de creación del pedido\nconst fechaCreacion = primerPedido.Fecha_de_creacion_del_pedido || \"\";\n\n// Crear un único objeto con datos del cliente\nreturn [{\n  json: {\n    telegram_id:            primerPedido.id_usuario               || \"\",\n    nombre_apoderado:       primerPedido.Nombre_Apoderado         || \"\",\n    correo_electronico:     primerPedido.correo                   || \"\",\n    telefono:               primerPedido.Telefono_de_Apoderado    || \"\",\n    tipo_usuario:           primerPedido.Tipo_de_usuario          || \"Apoderado\",\n    fecha_ultimo_pedido:  fechaCreacion,\n    ultima_interaccion:     fechaCreacion,  // o usa otro campo si prefieres distinta lógica\n    hijos_info:             JSON.stringify(hijosUnicos),\n    Estado_conversacion:    primerPedido.Estado_convesacion       || \"\",\n    Estado_de_pago:         primerPedido.Estado_de_pago           || \"\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6500,
+        -440
+      ],
+      "id": "031c51ce-fd97-416b-b634-7d713af3e0e0",
+      "name": "Code5"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tomar el JSON original\nconst inputText = $('Pagos').first().json.output;\nconst cleanedText = inputText.replace(/^```json\\s*/, '').replace(/\\s*```$/, '');\nconst parsed = JSON.parse(cleanedText);\n\n// Extraer solo datos del cliente, tomando referencia del primer pedido\nconst primerPedido = parsed.pedidos[0];\n\n// Extraer lista de hijos únicos (eliminando duplicados por nombre)\nconst hijosUnicos = [];\nconst nombresVistos = new Set();\n\nparsed.pedidos.forEach(pedido => {\n  if (!nombresVistos.has(pedido.nombre)) {\n    nombresVistos.add(pedido.nombre);\n    hijosUnicos.push({\n      nombre: pedido.nombre,\n      curso: pedido.curso_y_letra,\n      nivel: pedido.Nivel || \"\" // Añadido el nivel al JSON de hijos\n    });\n  }\n});\n\n// Crear un único objeto con datos del cliente\nreturn [{\n  json: {\n    telegram_id: primerPedido.id_usuario || \"\",\n    nombre_apoderado: primerPedido.Nombre_Apoderado || \"\",\n    correo_electronico: primerPedido.correo || \"\",\n    telefono: primerPedido.Telefono_de_Apoderado || \"\",\n    tipo_usuario: primerPedido.Tipo_de_usuario || \"Apoderado\",\n    ultima_interaccion: new Date().toISOString(),\n    ultima_interaccion1: primerPedido.Fecha_de_creacion_del_pedido || \"\",\n    Estado_de_pago: primerPedido.Estado_de_pago || \"\" ,\n    hijos_info: JSON.stringify(hijosUnicos)\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5720,
+        260
+      ],
+      "id": "b6868cad-ef33-46c5-b9a2-b0012762e53a",
+      "name": "Code6"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Postgres4').item.json.conversationstatus }}",
+                    "rightValue": "NUEVO",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "19a244b5-7750-4b06-bc26-fd647e333b9b"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "UsuarioNuevo"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ba154702-8ee0-48be-8d76-cc505087e0d3",
+                    "leftValue": "={{ $('Postgres4').item.json.conversationstatus }}",
+                    "rightValue": "EXISTE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "UsuarioExistente"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        5700,
+        -260
+      ],
+      "id": "c7f8d6c3-ea24-4624-8a52-310323c9be36",
+      "name": "Switch9"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clientes_recurrentes",
+          "mode": "list",
+          "cachedResultName": "clientes_recurrentes"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "telegram_id": "={{ $json.telegram_id }}",
+            "ultima_interaccion": "={{ $json.ultima_interaccion1 }}",
+            "conversation_state": "cerrada",
+            "last_pedido_state": "={{ $json.Estado_de_pago }}",
+            "last_action": "PagoPedido"
+          },
+          "matchingColumns": [
+            "telegram_id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nombre_apoderado",
+              "displayName": "nombre_apoderado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "correo_electronico",
+              "displayName": "correo_electronico",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "hijos_info",
+              "displayName": "hijos_info",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ultima_interaccion",
+              "displayName": "ultima_interaccion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_usuario",
+              "displayName": "tipo_usuario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "conversation_state",
+              "displayName": "conversation_state",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_action",
+              "displayName": "last_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "session_context",
+              "displayName": "session_context",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "last_pedido_state",
+              "displayName": "last_pedido_state",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "fecha_ultimo_pedido",
+              "displayName": "fecha_ultimo_pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        6780,
+        1000
+      ],
+      "id": "531e95b3-a1cc-4c7c-a0be-60363ce90e4a",
+      "name": "ClientesRecurrentes5",
+      "credentials": {
+        "postgres": {
+          "id": "pkNPuD63q9YnzG4j",
+          "name": "Postgres account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM usuarios_nuevos\nWHERE id_usuario = '{{ $json.id_usuario }}';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        6780,
+        -280
+      ],
+      "id": "ade067e4-e998-4e09-a4d4-d3c691477caf",
+      "name": "Postgres3",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "pkNPuD63q9YnzG4j",
+          "name": "Postgres account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        5820,
+        -620
+      ],
+      "id": "78f6da56-090c-43e9-9787-be4ebc09c4ee",
+      "name": "OpenAI Chat Model3",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qc5ynpGWNim7SZVx",
+          "name": "OpenAi account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "=customKey",
+        "sessionKey": "eyJhGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvZXNpcGV5YnNhc3JrbnZnbnRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5Mzg2MzEsImV4cCI6MjA1ODUxNDYzMX0.zLUMG6PRVJK1pEaAdO4pssFKGp8XMx9VAvwii4Xw1iU"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        5980,
+        -620
+      ],
+      "id": "2142e67f-7c3d-4593-9a7b-aea2062e03b9",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "pkNPuD63q9YnzG4j",
+          "name": "Postgres account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.content }}",
+        "options": {
+          "systemMessage": "=Eres un asistente virtual del Kiosko Escolar. Tu función es enviar un mensaje final de confirmación al usuario después de que su pedido ha sido procesado.\n\nTu mensaje debe ser:\n1. Corto y conciso (máximo 3 líneas)\n2. Confirmar que el pedido se ha registrado correctamente\n3. Mencionar el estado del pago (pendiente o pagado)\n4. Incluir una nota de agradecimiento\n\nEjemplos de mensajes finales:\n\nSi el pago está pendiente:\n\"✅ ¡Pedido registrado correctamente! El pago está pendiente. Por favor realiza la transferencia para poder realizar otro pedido. Gracias por preferirnos.\"\n\nSi el pago está completado:\n\"✅ ¡Pedido registrado y pagado correctamente! Tu pedido para [nombre del hijo] ya está confirmado. Gracias por confiar en Kiosko Escolar.\"\n\nProporciona solo el mensaje final, sin explicaciones adicionales.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        5800,
+        -780
+      ],
+      "id": "89e10ac4-d7ac-402a-976b-4ef870d35602",
+      "name": "UltimoMensaje"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.pedido.correo_apoderado }}",
+        "subject": "Confirmación de pedido - Kiosko Escolar",
+        "message": "={{ $json.emailHtml }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        6780,
+        -800
+      ],
+      "id": "8a709290-e145-472f-beea-c7bd86e5fcd9",
+      "name": "Gmail",
+      "webhookId": "3a3322d8-8e59-40a8-91dc-c22fc6916616",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "DYyMWthlCuc3MkT8",
+          "name": "Gmail account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Este código genera el HTML del correo\nfunction generateEmailHtml(pedido) {\n  // Generamos la lista de días solicitados\n  let diasHtml = '';\n  for (const [dia, comida] of Object.entries(pedido.resumen_por_dia)) {\n    diasHtml += `\n      <li style=\"margin-bottom: 10px; padding: 8px; background-color: #f9f9f9; border-radius: 4px;\">\n        <strong style=\"color: #2E7D32;\">${dia}:</strong> ${comida}\n      </li>\n    `;\n  }\n  \n  // Determinamos el estado de pago y su mensaje\n  const esPendiente = pedido.estado_de_pago === 'Pendiente';\n  const estadoColor = esPendiente ? '#FFECB3' : '#C8E6C9';\n  const estadoTextColor = esPendiente ? '#FF8F00' : '#2E7D32';\n  const mensajePago = esPendiente \n    ? 'Por favor, recuerda realizar el pago lo antes posible para confirmar tu pedido.'\n    : '¡Gracias por tu pago! Tu pedido está confirmado y listo para ser preparado.';\n  \n  // Construimos el HTML completo\n  return `\n  <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);\">\n    <div style=\"background-color: #4CAF50; color: white; padding: 15px; border-radius: 6px 6px 0 0; text-align: center;\">\n      <h1 style=\"margin: 0; font-size: 24px;\">✅ Kiosko Escolar</h1>\n    </div>\n    \n    <h2 style=\"color: #2E7D32; margin-top: 25px; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;\">Tu pedido ha sido registrado</h2>\n    <p>Hola <strong>${pedido.nombre_apoderado}</strong>,</p>\n\n    <p>Te confirmamos que el pedido para tu hijo/a ha sido recibido correctamente.</p>\n\n    <h2 style=\"color: #2E7D32; margin-top: 25px; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;\">👦 Datos del estudiante</h2>\n    <ul style=\"padding-left: 20px;\">\n      <li style=\"margin-bottom: 8px;\"><strong>Nombre:</strong> ${pedido.hijo.nombre}</li>\n      <li style=\"margin-bottom: 8px;\"><strong>Curso:</strong> ${pedido.hijo.curso}</li>\n      <li style=\"margin-bottom: 8px;\"><strong>Nivel:</strong> ${pedido.hijo.nivel}</li>\n    </ul>\n\n    <h2 style=\"color: #2E7D32; margin-top: 25px; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;\">📅 Días solicitados</h2>\n    <ul style=\"padding-left: 20px;\">\n      ${diasHtml}\n    </ul>\n\n    <h2 style=\"color: #2E7D32; margin-top: 25px; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;\">💳 Estado de pago:</h2>\n    \n    <div style=\"display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; background-color: ${estadoColor}; color: ${estadoTextColor};\">\n      ${pedido.estado_de_pago}\n    </div>\n    \n    <div style=\"margin-top: 15px; background-color: #FFF9C4; padding: 15px; border-radius: 4px; border-left: 4px solid #FBC02D;\">\n      <p style=\"margin: 0;\">${mensajePago}</p>\n    </div>\n\n    <div style=\"margin-top: 30px; text-align: center; font-size: 14px; color: #757575; border-top: 1px solid #e0e0e0; padding-top: 20px;\">\n      <p>Gracias por confiar en nosotros. Si tienes dudas, escribinos por el mismo canal de contacto.</p>\n      <p>© Delicias Food Service 2025</p>\n    </div>\n  </div>\n  `;\n}\n\n// Implementación para n8n\ntry {\n  const input = $input.item ? $input.item : $input.first();\n  const pedido = input.json.pedido;\n  \n  // Generar contenido HTML para el correo\n  const emailHtml = generateEmailHtml(pedido);\n  \n  // Generar HTML para el correo al kiosko si es necesario\n  let kioskHtml = '';\n  if (pedido.correo_kiosko) {\n    kioskHtml = `\n    <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);\">\n      <div style=\"background-color: #4CAF50; color: white; padding: 15px; border-radius: 6px 6px 0 0; text-align: center;\">\n        <h1 style=\"margin: 0; font-size: 24px;\">🆕 Nuevo Pedido Registrado</h1>\n      </div>\n      \n      <h2 style=\"color: #2E7D32; margin-top: 25px; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;\">👤 Datos del Apoderado</h2>\n      <ul style=\"padding-left: 20px;\">\n        <li style=\"margin-bottom: 8px;\"><strong>Nombre:</strong> ${pedido.nombre_apoderado}</li>\n        <li style=\"margin-bottom: 8px;\"><strong>Correo:</strong> ${pedido.correo_apoderado}</li>\n      </ul>\n\n      <h2 style=\"color: #2E7D32; margin-top: 25px; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;\">👦 Datos del Estudiante</h2>\n      <ul style=\"padding-left: 20px;\">\n        <li style=\"margin-bottom: 8px;\"><strong>Nombre:</strong> ${pedido.hijo.nombre}</li>\n        <li style=\"margin-bottom: 8px;\"><strong>Curso:</strong> ${pedido.hijo.curso}</li>\n        <li style=\"margin-bottom: 8px;\"><strong>Nivel:</strong> ${pedido.hijo.nivel}</li>\n      </ul>\n      \n      <h2 style=\"color: #2E7D32; margin-top: 25px; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;\">💳 Estado de pago:</h2>\n      <div style=\"display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; background-color: ${pedido.estado_de_pago === 'Pendiente' ? '#FFECB3' : '#C8E6C9'}; color: ${pedido.estado_de_pago === 'Pendiente' ? '#FF8F00' : '#2E7D32'};\">\n        ${pedido.estado_de_pago}\n      </div>\n      \n      <div style=\"margin-top: 30px; text-align: center; font-size: 14px; color: #757575; border-top: 1px solid #e0e0e0; padding-top: 20px;\">\n        <p>Por favor revisar este pedido según el estado de pago. Si está pendiente, tener presente al momento de la entrega.</p>\n      </div>\n    </div>\n    `;\n  }\n  \n  return [\n    {\n      json: {\n        pedido,\n        emailHtml,\n        kioskHtml,\n        clienteCorreo: pedido.correo_apoderado,\n        kioskoCorreo: pedido.correo_kiosko\n      }\n    }\n  ];\n} catch (error) {\n  return [\n    { json: { error: error.message } }\n  ];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5700,
+        -420
+      ],
+      "id": "793657ce-9eb3-47db-8380-feb2cb8a1d10",
+      "name": "Code3"
+    },
+    {
+      "parameters": {
+        "sendTo": "c.wevarh@gmail.com",
+        "subject": "Confirmación de pedido - Kiosko Escolar",
+        "message": "={{ $json.kioskHtml }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        6780,
+        -640
+      ],
+      "id": "fd01ee3b-63ad-4026-841a-0b74c89c25b0",
+      "name": "Gmail1",
+      "webhookId": "3a3322d8-8e59-40a8-91dc-c22fc6916616",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "DYyMWthlCuc3MkT8",
+          "name": "Gmail account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputText = $input.first().json.output;\n  const cleanedText = inputText.replace(/^```json\\s*/, '').replace(/\\s*```$/, '');\n  const parsed = JSON.parse(cleanedText);\n\n  if (!parsed.pedidos || !Array.isArray(parsed.pedidos)) {\n    throw new Error(\"No se encontró el array 'pedidos'\");\n  }\n\n  const pedidos = parsed.pedidos;\n  const first = pedidos[0];\n  const hijo = first.Hijos_Info[0] || {};\n\n  // Armar resumen por día\n  const resumenPorDia = {};\n  pedidos.forEach(p => {\n    resumenPorDia[p.dia_entrega] = p.descripcion_del_producto;\n  });\n\n  const pedido = {\n    nombre_apoderado: first.Nombre_Apoderado,\n    correo_apoderado: first.correo,\n    tipo_pedido: first.tipo_pedido,\n    fecha_pedido: first.Fecha_de_creacion_del_pedido,\n    estado_de_pago: first.Estado_de_pago,\n    hijo: {\n      nombre: hijo.nombre,\n      curso: hijo.curso_y_letra,\n      nivel: hijo.Nivel\n    },\n    resumen_por_dia: resumenPorDia,\n    correo_kiosko: \"kiosko@colegio.cl\"\n  };\n\n  return [{\n    json: {\n      type: \"human\",\n      content: \" \", // Para que el historial del agente no falle\n      pedido\n    }\n  }];\n\n} catch (error) {\n  return [{\n    json: {\n      type: \"human\",\n      content: \"Error: \" + error.message\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5340,
+        -600
+      ],
+      "id": "867b3fde-4fed-4f5b-9c58-7c48a52b9aaa",
+      "name": "Code9"
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v18.0/{{ $('Edit Fields').item.json.imagen }}?fields=url",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3700,
+        0
+      ],
+      "id": "ea10004f-fa0b-4766-8c9c-04af94f172ed",
+      "name": "HTTP Request",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "8G93TNGH8sFoKoez",
+          "name": "Bearer Auth account"
+        },
+        "whatsAppApi": {
+          "id": "hAZCQMbjo97U8tgF",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "text": "=Tu tarea es analizar la imagen del comprobante de transferencia bancaria.\nDevuelve la información estructurada en formato JSON.\nLa URL de la imagen siempre será: {{ $json.download_url }}\n\nANALIZA LOS SIGUIENTES ELEMENTOS:\n1. Monto: Extrae el monto exacto de la transferencia\n2. Destinatario: Verifica que sea \"Christian Wevar Herrera\" (el nombre puede estar en mayúsculas, minúsculas o mixto)\n3. Banco: Identifica el banco emisor\n4. Fecha y hora: Extrae la fecha y hora completa de la transferencia\n\nVALIDACIÓN DE FECHA Y HORA:\n- La transferencia es válida si se realizó entre: \n  {{ $json.validacion_fecha.fecha_hora_minima_texto }} y {{ $json.validacion_fecha.fecha_hora_maxima_texto }}\n- Es decir, la transferencia debe haberse realizado en las últimas 24 horas\n- Considera que pueden haber cambios de día entre la transferencia y el momento actual\n- El destinatario es válido si contiene \"wevar\" o \"christian\" (sin importar mayúsculas o minúsculas)\n\nRESPUESTA ESTRUCTURADA:\n{\n  \"monto\": [monto exacto],\n  \"destinatario\": [nombre completo],\n  \"banco\": [nombre del banco],\n  \"fecha_hora\": [fecha y hora completa],\n  \"url_imagen\": \"{{ $json.download_url }}\",\n  \"validacion\": {\n    \"monto_correcto\": [true/false],\n    \"destinatario_correcto\": [true/false],\n    \"fecha_hora_valida\": [true/false],\n    \"comprobante_valido\": [true/false]\n  }\n}\n\nSi no es un comprobante de transferencia, explica por qué no lo es.",
+        "inputType": "base64",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        4300,
+        0
+      ],
+      "id": "8fed7f45-5804-467c-bba1-b15415d94aa7",
+      "name": "OpenAI2",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qc5ynpGWNim7SZVx",
+          "name": "OpenAi account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"download_url\": \"{{ $json.url }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3860,
+        0
+      ],
+      "id": "1289310f-2468-4b1a-99e3-c4d2eefa8654",
+      "name": "Edit Fields4"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.download_url }}\n",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "options": {
+          "batching": {
+            "batch": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4000,
+        0
+      ],
+      "id": "d93e64f9-ebf4-4356-b202-4b23ae1436a1",
+      "name": "HTTP Request1",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "hAZCQMbjo97U8tgF",
+          "name": "WhatsApp account"
+        },
+        "httpBearerAuth": {
+          "id": "8G93TNGH8sFoKoez",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtenemos el input del nodo anterior\nconst input  = $input.first();\nconst jsonIn = input.json;\nconst binIn  = input.binary;\n\n// Si quieres extraer explícitamente download_url:\nconst downloadUrl = jsonIn.download_url;\n\n// Obtenemos la fecha actual\nconst now = new Date();\n// Calculamos fechas válidas para la transferencia (desde 24 h antes hasta ahora)\nconst fechaMinima = new Date(now);\nfechaMinima.setHours(now.getHours() - 24);\n\n// Función para formatear fechas\nfunction formatDate(date) {\n  const day     = String(date.getDate()).padStart(2, '0');\n  const month   = String(date.getMonth() + 1).padStart(2, '0');\n  const year    = date.getFullYear();\n  const hours   = String(date.getHours()).padStart(2, '0');\n  const minutes = String(date.getMinutes()).padStart(2, '0');\n  return {\n    fecha:    `${day}/${month}/${year}`,\n    hora:     `${hours}:${minutes}`,\n    completa: `${day}/${month}/${year} ${hours}:${minutes}`\n  };\n}\n\nconst fechaMinimaTexto = formatDate(fechaMinima);\nconst fechaMaximaTexto = formatDate(now);\n\n// Construimos el resultado, manteniendo todo el JSON entrante\nconst resultado = {\n  ...jsonIn,\n  download_url: downloadUrl,\n  validacion_fecha: {\n    fecha_hora_actual:        now.toISOString(),\n    fecha_hora_minima_valida: fechaMinima.toISOString(),\n    fecha_hora_maxima_valida: now.toISOString(),\n    fecha_hora_minima_texto:  fechaMinimaTexto.completa,\n    fecha_hora_maxima_texto:  fechaMaximaTexto.completa\n  }\n};\n\n// Devolvemos JSON + el binario original para OpenAI\nreturn [{\n  json:   resultado,\n  binary: binIn,\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4140,
+        0
+      ],
+      "id": "cb04f36d-c4dd-4a5e-8ced-a34d8fa3d5b2",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "clientes_recurrentes",
+          "mode": "list",
+          "cachedResultName": "clientes_recurrentes"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "telegram_id": "={{ $json.telegram_id }}",
+            "ultima_interaccion": "={{ $json.ultima_interaccion }}",
+            "last_pedido_state": "={{ $json.Estado_de_pago }}",
+            "fecha_ultimo_pedido": "={{ $json.ultima_interaccion1 }}",
+            "conversation_state": "Cerrada",
+            "session_context": "Cerrada",
+            "last_action": "PedidoAgendado"
+          },
+          "matchingColumns": [
+            "telegram_id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nombre_apoderado",
+              "displayName": "nombre_apoderado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "correo_electronico",
+              "displayName": "correo_electronico",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "hijos_info",
+              "displayName": "hijos_info",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ultima_interaccion",
+              "displayName": "ultima_interaccion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_usuario",
+              "displayName": "tipo_usuario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "conversation_state",
+              "displayName": "conversation_state",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_action",
+              "displayName": "last_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "session_context",
+              "displayName": "session_context",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_pedido_state",
+              "displayName": "last_pedido_state",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha_ultimo_pedido",
+              "displayName": "fecha_ultimo_pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        6780,
+        -120
+      ],
+      "id": "de8124fa-8b1a-4244-80ef-53fec14c30d8",
+      "name": "ClientesRecurrentes1",
+      "credentials": {
+        "postgres": {
+          "id": "pkNPuD63q9YnzG4j",
+          "name": "Postgres account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tomar el JSON original\nconst inputText = $('Pagos').first().json.output;\nconst cleanedText = inputText.replace(/^```json\\s*/, '').replace(/\\s*```$/, '');\nconst parsed = JSON.parse(cleanedText);\n\n// Extraer solo datos del cliente, tomando referencia del primer pedido\nconst primerPedido = parsed.pedidos[0];\n\n// Extraer lista de hijos únicos (eliminando duplicados por nombre)\nconst hijosUnicos = [];\nconst nombresVistos = new Set();\n\nparsed.pedidos.forEach(pedido => {\n  if (!nombresVistos.has(pedido.nombre)) {\n    nombresVistos.add(pedido.nombre);\n    hijosUnicos.push({\n      nombre: pedido.nombre,\n      curso: pedido.curso_y_letra,\n      nivel: pedido.Nivel || \"\" // Añadido el nivel al JSON de hijos\n    });\n  }\n});\n\n// Crear un único objeto con datos del cliente\nreturn [{\n  json: {\n    telegram_id: primerPedido.id_usuario || \"\",\n    nombre_apoderado: primerPedido.Nombre_Apoderado || \"\",\n    correo_electronico: primerPedido.correo || \"\",\n    telefono: primerPedido.Telefono_de_Apoderado || \"\",\n    tipo_usuario: primerPedido.Tipo_de_usuario || \"Apoderado\",\n    ultima_interaccion: new Date().toISOString(),\n    ultima_interaccion1: primerPedido.Fecha_de_creacion_del_pedido || \"\",\n    Estado_de_pago: primerPedido.Estado_de_pago || \"\" ,\n    hijos_info: JSON.stringify(hijosUnicos)\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6560,
+        -120
+      ],
+      "id": "632ac6cb-ed50-40ce-976a-0b8cc2169dab",
+      "name": "Code7"
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v18.0/{{ $('Edit Fields').item.json.Audio_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3620,
+        -160
+      ],
+      "name": "Download Audio URL",
+      "id": "48d299f8-9139-487b-b33e-6150a4a28edc",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "hAZCQMbjo97U8tgF",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraer la URL del audio de la respuesta de WhatsApp API\nconst response = $input.first().json;\n\nif (response && response.url) {\n  return [\n    {\n      json: {\n        audio_url: response.url\n      }\n    }\n  ];\n} else {\n  // Si no hay URL, devolver un error para manejar\n  throw new Error('No se pudo obtener la URL del audio');\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3760,
+        -160
+      ],
+      "id": "34758ddb-ccca-4bb1-b59c-819568e3ff90",
+      "name": "Extract Audio URL"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.audio_url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          },
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3920,
+        -160
+      ],
+      "name": "Download Audio File",
+      "id": "589d9dbf-2399-42d4-b0a8-edd530578ada",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "hAZCQMbjo97U8tgF",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar el binario para OpenAI\nif (!items[0].binary) {\n  throw new Error('No se recibió contenido binario del audio');\n}\n\n// Obtener la clave del binario (por defecto 'data')\nconst binaryPropertyName = Object.keys(items[0].binary)[0];\n\n// Asegurarse de que el binario tenga nombre y tipo MIME correcto\nitems[0].binary[binaryPropertyName].fileName = 'audio.ogg';\nitems[0].binary[binaryPropertyName].mimeType = 'audio/ogg';\n\nreturn items;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4100,
+        -160
+      ],
+      "id": "7f77e78b-6b86-4c0e-9c84-7bb527e18c9f",
+      "name": "Prepare Audio Binary"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {
+          "language": "es"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        4280,
+        -160
+      ],
+      "id": "51006752-9ad5-44a3-9a51-94356268ec15",
+      "name": "OpenAI Transcription",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qc5ynpGWNim7SZVx",
+          "name": "OpenAi account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validar la transcripción y formatear la salida\nconst input = $input.first().json;\nlet transcripcion = input.text || '';\n\nif (!transcripcion || transcripcion.length < 3) {\n  // Transcripción vacía o muy corta, probablemente falló\n  console.log('Error en la transcripción: texto muy corto o vacío');\n  return [{\n    json: {\n      texto: 'Lo siento, no pude entender el mensaje de voz. ¿Podrías intentar enviar un mensaje de texto?',\n      error: true\n    }\n  }];\n}\n\n// Transcripción exitosa\nreturn [{\n  json: {\n    texto: transcripcion,\n    error: false\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4440,
+        -160
+      ],
+      "id": "cc35291e-be76-4b42-a9c2-a8f0019bf81e",
+      "name": "Format Transcription"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Nodo ContextoUnificadoPlus - Versión completa unificada\ntry {\n  // Función auxiliar para acceder a propiedades de forma segura\n  const getProp = (obj, path, defaultValue = \"N/A\") => {\n    try {\n      const parts = path.split('.');\n      let current = obj;\n      for (const part of parts) {\n        if (current === null || current === undefined) return defaultValue;\n        current = current[part];\n      }\n      return current !== null && current !== undefined ? current : defaultValue;\n    } catch (e) {\n      return defaultValue;\n    }\n  };\n\n  // Intentar obtener nodos principales con manejo de errores\n  const input = $input.first()?.json || {};\n  const editFields = $('Edit Fields').first()?.json || {};\n  const datosUsuario = $('GestorContextoUsuario1').first()?.json || {};\n  const postgres4 = $('Postgres4').first()?.json || {};\n  const datosTiempo = $('Code').first()?.json || {};\n\n  // Valores clave con extracción segura\n  const mensajeUsuario = input.texto || input.text || editFields.text || \"\";\n  const esUsuarioNuevo = getProp(postgres4, 'user_status') === \"NUEVO\";\n  const contextoUsuario = getProp(datosUsuario, 'contexto_procesado', {});\n  \n  // Extraer información temporal con manejo de excepciones\n  const fechaActual = getProp(datosTiempo, 'fechaActual');\n  const horaActual = getProp(datosTiempo, 'horaActual');\n  const fechaEntrega = getProp(datosTiempo, 'disponibilidad_entrega.fecha_entrega');\n  const mensajeTiempo = getProp(datosTiempo, 'mensaje', \"\");\n  const pedidoPosibleHoy = getProp(datosTiempo, 'pedidoParaHoy', false);\n  const diaSemana = getProp(datosTiempo, 'timestamp_actual.nombre_dia');\n\n  // Generar fechas para la próxima semana completa\n  const fechasProximaSemana = {};\n  const diasSemana = [\"lunes\", \"martes\", \"miércoles\", \"jueves\", \"viernes\"];\n  const hoy = new Date();\n  const primerDia = new Date(hoy);\n\n  // Ajustar al lunes próximo\n  const diaSemanaActual = hoy.getDay(); // 0 = domingo, 1 = lunes, etc.\n  const diasHastaLunes = diaSemanaActual === 0 ? 1 : diaSemanaActual === 6 ? 2 : 8 - diaSemanaActual;\n  primerDia.setDate(hoy.getDate() + diasHastaLunes);\n\n  // Generar fechas para cada día de la próxima semana\n  diasSemana.forEach((dia, index) => {\n    const fecha = new Date(primerDia);\n    fecha.setDate(primerDia.getDate() + index);\n    const fechaFormateada = `${fecha.getDate()}/${fecha.getMonth() + 1}/${fecha.getFullYear()}`;\n    fechasProximaSemana[dia] = fechaFormateada;\n  });\n\n  // GENERAR TEXTO CONTEXTUAL PARA EL AGENTE\n  let contextoTexto = `\n=== INFORMACIÓN CONTEXTUAL ===\n\nDATOS TEMPORALES:\n- Fecha actual: ${fechaActual}\n- Hora actual: ${horaActual}\n- Día de la semana: ${diaSemana}\n- Próxima entrega: ${fechaEntrega}\n- ${mensajeTiempo}\n`;\n\n  if (pedidoPosibleHoy) {\n    contextoTexto += \"• NOTA: Es posible hacer pedidos para el mismo día.\\n\";\n  } else {\n    contextoTexto += \"• NOTA: Ya no es posible hacer pedidos para hoy.\\n\";\n  }\n\n  // Añadir calendario de entregas\n  contextoTexto += `\nCALENDARIO DE ENTREGAS (próxima semana):`;\n\n  diasSemana.forEach(dia => {\n    contextoTexto += `\n- ${dia.charAt(0).toUpperCase() + dia.slice(1)}: ${fechasProximaSemana[dia]}`;\n  });\n\n  contextoTexto += `\n\nESTADO DEL USUARIO:\n- ID usuario: ${getProp(editFields, 'from_id')}\n- Tipo: ${esUsuarioNuevo ? \"NUEVO\" : getProp(postgres4, 'tipo_usuario', \"RECURRENTE\")}\n`;\n\n  if (!esUsuarioNuevo) {\n    contextoTexto += `• Nombre: ${getProp(postgres4, 'nombre_apoderado')}\n- Correo: ${getProp(postgres4, 'correo_electronico')}\n- Último pedido: ${getProp(postgres4, 'fecha_ultimo_pedido')}\n- Estado del último pedido: ${getProp(postgres4, 'last_pedido_state')}\n`;\n    \n    // Intentar parsear info de hijos si existe\n    try {\n      const hijosInfo = JSON.parse(getProp(postgres4, 'hijos_info', '[]'));\n      if (hijosInfo && hijosInfo.length > 0) {\n        contextoTexto += \"• Información de hijos:\\n\";\n        hijosInfo.forEach((hijo, idx) => {\n          contextoTexto += `  - Hijo ${idx+1}: ${hijo.nombre || 'N/A'}, Curso: ${hijo.curso || 'N/A'}\\n`;\n        });\n      }\n    } catch (e) {\n      contextoTexto += \"• Información de hijos: No disponible\\n\";\n    }\n  }\n\n  contextoTexto += `\nESTADO DE LA CONVERSACIÓN:\n- Estado actual: ${getProp(contextoUsuario, 'estadoActual', 'nueva')}\n- Última acción: ${getProp(contextoUsuario, 'ultimaAccion', 'ninguna')}\n- ${getProp(contextoUsuario, 'mensajeSistema', 'Sin mensaje del sistema')}\n- Recomendación: ${getProp(contextoUsuario, 'recomendacionAgente', 'Sin recomendación específica')}\n\nMENSAJE DEL USUARIO:\n\"${mensajeUsuario}\"\n\n=== FIN DEL CONTEXTO ===\n`;\n\n  // Devolver el resultado final\n  return [{\n    json: {\n      contexto_texto: contextoTexto,\n      mensaje_usuario: mensajeUsuario,\n      id_usuario: getProp(editFields, 'from_id'),\n      es_nuevo: esUsuarioNuevo,\n      calendario_fechas: fechasProximaSemana\n    }\n  }];\n  \n} catch (error) {\n  // Capturar cualquier error y devolver un mensaje de error manejable\n  console.error(\"Error en ContextoUnificadoPlus:\", error);\n  \n  return [{\n    json: {\n      contexto_texto: \"⚠️ No se pudo generar el contexto completo debido a un error.\\n\\n\",\n      mensaje_usuario: $input.first()?.json?.texto || $input.first()?.json?.text || \"Mensaje no disponible\",\n      error: error.message\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4800,
+        -820
+      ],
+      "id": "4003bbdd-3eb7-4845-8959-c5055c84f7f5",
+      "name": "Code4"
+    },
+    {
+      "parameters": {
+        "multipleMethods": true,
+        "httpMethod": [
+          "POST"
+        ],
+        "path": "b3c993b7-d60b-46f9-a80a-7cbfae43fc87",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        1620,
+        -320
+      ],
+      "id": "5054196b-5ff9-4db4-b582-f4e6f69f0f26",
+      "name": "Webhook",
+      "webhookId": "b3c993b7-d60b-46f9-a80a-7cbfae43fc87"
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- normalize en un nodo CODE ---\n  \n// 1) Extraer la parte 'body' si existe, o usar json directamente\nconst raw = items[0].json;\nconst input = raw.body || raw;\n\n// 2) Ahora sí, mapear a strings y devolver el item normalizado\nreturn [\n  {\n    json: {\n      sessionId:    String(input.sessionId),\n      phone_id:     String(input.phone_id),\n      type:         String(input.type),\n      message:      typeof input.message === 'string'\n                        ? input.message\n                        : JSON.stringify(input.message),\n      file_url:     input.file_url ? String(input.file_url) : undefined,\n      payment_mode: input.payment_mode ? String(input.payment_mode) : undefined,\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1860,
+        -320
+      ],
+      "id": "d4ff9b4f-d4a4-4b0d-bcb9-5645b0d8548d",
+      "name": "Code10"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "pedido",
+          "mode": "list",
+          "cachedResultName": "pedido"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "estado_pago": "={{ $json.Estado_de_pago }}",
+            "fecha_creacion": "={{ $('Postgres4').item.json.fecha_ultimo_pedido }}"
+          },
+          "matchingColumns": [
+            "fecha_creacion"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "tipo_usuario",
+              "displayName": "tipo_usuario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "nombre_estudiante",
+              "displayName": "nombre_estudiante",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "curso_letra",
+              "displayName": "curso_letra",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "casino_entrega",
+              "displayName": "casino_entrega",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "nivel",
+              "displayName": "nivel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "fecha_creacion",
+              "displayName": "fecha_creacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "tipo_pedido",
+              "displayName": "tipo_pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "semana_mes",
+              "displayName": "semana_mes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "codigo",
+              "displayName": "codigo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "dia_entrega",
+              "displayName": "dia_entrega",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "precio_unitario",
+              "displayName": "precio_unitario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "observacion",
+              "displayName": "observacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "nombre_apoderado",
+              "displayName": "nombre_apoderado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "telefono_apoderado",
+              "displayName": "telefono_apoderado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "correo_electronico",
+              "displayName": "correo_electronico",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "estado_pago",
+              "displayName": "estado_pago",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "check",
+              "displayName": "check",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        6780,
+        680
+      ],
+      "id": "ce617459-6bfd-4d65-838c-e80fb9ca698f",
+      "name": "TablaNueva",
+      "credentials": {
+        "postgres": {
+          "id": "pkNPuD63q9YnzG4j",
+          "name": "Postgres account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "pedido",
+          "mode": "list",
+          "cachedResultName": "pedido"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "nombre_estudiante": "={{ $json.nombre }}",
+            "tipo_pedido": "={{ $json.tipo_pedido }}",
+            "codigo": "={{ $json.codigo }}",
+            "precio_unitario": "={{ $json.precio_unitario }}",
+            "correo_electronico": "={{ $json.correo }}",
+            "dia_entrega": "={{ $json.dia_entrega }}",
+            "tipo_usuario": "={{ $json.Tipo_de_usuario }}",
+            "nivel": "={{ $json.Nivel }}",
+            "estado_pago": "={{ $json.Estado_de_pago }}",
+            "fecha_creacion": "={{ $json.Fecha_de_creacion_del_pedido }}",
+            "curso_letra": "={{ $json.curso_y_letra }}",
+            "casino_entrega": "={{ $json.Casino_de_entrega }}",
+            "semana_mes": "={{ $json.Semana_Mes }}",
+            "observacion": "={{ $json.Observacion }}",
+            "nombre_apoderado": "={{ $json.Nombre_Apoderado }}",
+            "telefono_apoderado": "={{ $json.Telefono_de_Apoderado }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "tipo_usuario",
+              "displayName": "tipo_usuario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nombre_estudiante",
+              "displayName": "nombre_estudiante",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "curso_letra",
+              "displayName": "curso_letra",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "casino_entrega",
+              "displayName": "casino_entrega",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nivel",
+              "displayName": "nivel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "fecha_creacion",
+              "displayName": "fecha_creacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "tipo_pedido",
+              "displayName": "tipo_pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "semana_mes",
+              "displayName": "semana_mes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "codigo",
+              "displayName": "codigo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "dia_entrega",
+              "displayName": "dia_entrega",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "precio_unitario",
+              "displayName": "precio_unitario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "observacion",
+              "displayName": "observacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nombre_apoderado",
+              "displayName": "nombre_apoderado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "telefono_apoderado",
+              "displayName": "telefono_apoderado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "correo_electronico",
+              "displayName": "correo_electronico",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "estado_pago",
+              "displayName": "estado_pago",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "check",
+              "displayName": "check",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        6780,
+        200
+      ],
+      "id": "ebba45ac-5a75-4d90-b9c1-e90c1fadf0da",
+      "name": "Tablanueva",
+      "credentials": {
+        "postgres": {
+          "id": "pkNPuD63q9YnzG4j",
+          "name": "Postgres account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "pedidos",
+          "mode": "list",
+          "cachedResultName": "pedidos"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "estado_pago": "={{ $json.Estado_de_pago }}",
+            "fecha_creacion": "={{ $('Postgres4').item.json.fecha_ultimo_pedido }}"
+          },
+          "matchingColumns": [
+            "fecha_creacion"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "tipo_usuario",
+              "displayName": "tipo_usuario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "nombre_estudiante",
+              "displayName": "nombre_estudiante",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "curso_y_letra",
+              "displayName": "curso_y_letra",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "nivel",
+              "displayName": "nivel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "tipo_pedido",
+              "displayName": "tipo_pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "semana_del_mes",
+              "displayName": "semana_del_mes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "codigo",
+              "displayName": "codigo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "descripcion_producto",
+              "displayName": "descripcion_producto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "precio_unitario",
+              "displayName": "precio_unitario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "dia_entrega",
+              "displayName": "dia_entrega",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "correo_electronico",
+              "displayName": "correo_electronico",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "id_pedido_agrupado",
+              "displayName": "id_pedido_agrupado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "fecha_creacion",
+              "displayName": "fecha_creacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "observaciones",
+              "displayName": "observaciones",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "link_comprobante",
+              "displayName": "link_comprobante",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "estado_pago",
+              "displayName": "estado_pago",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        6780,
+        840
+      ],
+      "id": "4524c742-bd5f-4304-88a0-aa27ed5c874e",
+      "name": "TablaAntigua",
+      "credentials": {
+        "postgres": {
+          "id": "pkNPuD63q9YnzG4j",
+          "name": "Postgres account 6"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Postgres4": {
+      "main": [
+        [
+          {
+            "node": "GestorContextoUsuario1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GestorContextoUsuario1": {
+      "main": [
+        [
+          {
+            "node": "Postgres5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Postgres4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Set Usuario Existente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Usuario Nuevo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Usuario Existente": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Usuario Nuevo": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres5": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Switch3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download Audio URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "GestionPedidos",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator1": {
+      "ai_tool": [
+        [
+          {
+            "node": "GestionPedidos",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "GestionPedidos",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BuscarPedido": {
+      "ai_tool": [
+        [
+          {
+            "node": "GestionPedidos",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ReprogramarPedido": {
+      "ai_tool": [
+        [
+          {
+            "node": "GestionPedidos",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Colaciones": {
+      "ai_tool": [
+        [
+          {
+            "node": "GestionPedidos",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Almuerzos": {
+      "ai_tool": [
+        [
+          {
+            "node": "GestionPedidos",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch3": {
+      "main": [
+        [
+          {
+            "node": "Code4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pagos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI5": {
+      "main": [
+        [
+          {
+            "node": "Code8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code8": {
+      "main": [
+        [
+          {
+            "node": "Switch10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch10": {
+      "main": [
+        [
+          {
+            "node": "ClientesRecurrentes3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Postgres1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GestionPedidos": {
+      "main": [
+        [
+          {
+            "node": "OpenAI5",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "WhatsApp Business Cloud2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Pagos",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator2": {
+      "ai_tool": [
+        [
+          {
+            "node": "Pagos",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory2": {
+      "ai_memory": [
+        [
+          {
+            "node": "Pagos",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Colaciones1": {
+      "ai_tool": [
+        [
+          {
+            "node": "Pagos",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Almuerzos1": {
+      "ai_tool": [
+        [
+          {
+            "node": "Pagos",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Switch9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch5": {
+      "main": [
+        [
+          {
+            "node": "Code7",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TablaPedidos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "ExcelPedidos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Tablanueva",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "TablaAntigua",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code6",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TablaNueva",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code5": {
+      "main": [
+        [
+          {
+            "node": "ClientesRecurrentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code6": {
+      "main": [
+        [
+          {
+            "node": "ClientesRecurrentes5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch9": {
+      "main": [
+        [
+          {
+            "node": "Code5",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TablaPedidos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "ExcelPedidos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Postgres3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Tablanueva",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pagos": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "UltimoMensaje",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "UltimoMensaje",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code3": {
+      "main": [
+        [
+          {
+            "node": "Gmail",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gmail1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code9": {
+      "main": [
+        [
+          {
+            "node": "UltimoMensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UltimoMensaje": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp Business Cloud2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields4": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "OpenAI2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI2": {
+      "main": [
+        [
+          {
+            "node": "Pagos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code7": {
+      "main": [
+        [
+          {
+            "node": "ClientesRecurrentes1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Audio URL": {
+      "main": [
+        [
+          {
+            "node": "Extract Audio URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Audio URL": {
+      "main": [
+        [
+          {
+            "node": "Download Audio File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Audio File": {
+      "main": [
+        [
+          {
+            "node": "Prepare Audio Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Audio Binary": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Transcription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Transcription": {
+      "main": [
+        [
+          {
+            "node": "Format Transcription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Transcription": {
+      "main": [
+        [
+          {
+            "node": "Switch3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code4": {
+      "main": [
+        [
+          {
+            "node": "GestionPedidos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code10": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ea396809-a2bb-4d87-91ce-bd41077ddd3e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "612bd8e60f1ea1d2c38874dd04c99d0cdb16e10716593b9467a9f667092b5d10"
+  },
+  "id": "WqFboxmkpd3GJkEu",
+  "tags": []
+}
